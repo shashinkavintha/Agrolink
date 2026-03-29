@@ -47,7 +47,15 @@ export default function ProductDetails() {
         if (product && activeTab === 'reviews') {
             setLoadingReviews(true);
             axios.get(`/api/reviews/product/${product.id}`)
-                .then(res => setReviews(res.data))
+                .then(res => {
+                    const sortedReviews = res.data.sort((a, b) => {
+                        if (a.rating !== b.rating) {
+                            return (b.rating || 0) - (a.rating || 0);
+                        }
+                        return new Date(b.createdAt) - new Date(a.createdAt);
+                    });
+                    setReviews(sortedReviews);
+                })
                 .catch(err => console.error("Failed to load reviews", err))
                 .finally(() => setLoadingReviews(false));
         }
@@ -303,6 +311,22 @@ export default function ProductDetails() {
                                                     <p className="text-gray-700 text-sm leading-relaxed">
                                                         {review.comment || <span className="text-gray-400 italic">No written feedback provided.</span>}
                                                     </p>
+
+                                                    {/* Display Seller Reply */}
+                                                    {review.sellerReply && (
+                                                        <div className="mt-4 bg-green-50/50 p-3 rounded-xl border border-green-100 relative">
+                                                            <div className="absolute top-0 right-4 -mt-2 opacity-50 text-green-200">
+                                                                <ShieldCheck className="h-6 w-6" />
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 mb-1 relative z-10">
+                                                                <ShieldCheck className="h-3 w-3 text-[#1a7935]" />
+                                                                <span className="text-xs font-bold text-gray-800 tracking-wide uppercase">Response from Seller</span>
+                                                            </div>
+                                                            <p className="text-gray-600 text-xs italic leading-relaxed relative z-10">
+                                                                "{review.sellerReply}"
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>

@@ -37,6 +37,9 @@ public class Review {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
+    @Column(name = "seller_reply", columnDefinition = "TEXT")
+    private String sellerReply;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -93,6 +96,14 @@ public class Review {
 
     public void setComment(String comment) {
         this.comment = comment;
+    }
+
+    public String getSellerReply() {
+        return sellerReply;
+    }
+
+    public void setSellerReply(String sellerReply) {
+        this.sellerReply = sellerReply;
     }
 
     public LocalDateTime getCreatedAt() {

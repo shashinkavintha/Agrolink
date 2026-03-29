@@ -63,6 +63,16 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.getReview(orderId, reviewerId, revieweeId, productId));
     }
 
+    @PutMapping("/{reviewId}/reply")
+    public ResponseEntity<Review> replyToReview(@PathVariable UUID reviewId, @RequestBody java.util.Map<String, String> payload) {
+        String reply = payload.get("reply");
+        if (reply == null || reply.trim().isEmpty()) {
+            throw new IllegalArgumentException("Reply text cannot be empty");
+        }
+        Review review = reviewService.replyToReview(reviewId, reply);
+        return ResponseEntity.ok(review);
+    }
+
     public static class ReviewRequest {
         private UUID orderId;
         private UUID reviewerId;

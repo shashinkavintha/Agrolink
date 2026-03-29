@@ -77,6 +77,13 @@ public class ReviewService {
                 throw new IllegalStateException("Product not found in this order");
             }
             review.setProduct(product);
+            
+            // Automated Review Reply bot logic for Product reviews
+            if (rating >= 4) {
+                review.setSellerReply("Thank you so much for your positive feedback! We are thrilled you liked the product.");
+            } else {
+                review.setSellerReply("We appreciate your feedback and sincerely apologize that the product didn't fully meet your expectations. We will use this to improve.");
+            }
         }
 
         Review savedReview = reviewRepository.save(review);
@@ -155,6 +162,14 @@ public class ReviewService {
             return reviewRepository.findByOrderIdAndReviewerIdAndProductId(orderId, reviewerId, productId).orElse(null);
         }
         return null;
+    }
+
+    @Transactional
+    public Review replyToReview(UUID reviewId, String reply) {
+        Review review = reviewRepository.findById(reviewId)
+            .orElseThrow(() -> new IllegalArgumentException("Review not found"));
+        review.setSellerReply(reply);
+        return reviewRepository.save(review);
     }
 
     private void updateProductRating(UUID productId) {
