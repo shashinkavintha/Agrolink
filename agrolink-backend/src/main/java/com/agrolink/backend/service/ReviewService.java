@@ -16,19 +16,20 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-
 public class ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final ProfileRepository profileRepository;
     private final OrderRepository orderRepository;
+    private final RankingService rankingService;
     private final ProductRepository productRepository;
 
     public ReviewService(ReviewRepository reviewRepository, ProfileRepository profileRepository,
-            OrderRepository orderRepository, ProductRepository productRepository) {
+            OrderRepository orderRepository, RankingService rankingService, ProductRepository productRepository) {
         this.reviewRepository = reviewRepository;
         this.profileRepository = profileRepository;
         this.orderRepository = orderRepository;
+        this.rankingService = rankingService;
         this.productRepository = productRepository;
     }
 
@@ -63,10 +64,23 @@ public class ReviewService {
         review.setComment(comment);
         review.setCreatedAt(LocalDateTime.now());
 
+        // Verified Purchase status
+        boolean isVerified = order.getStatus() == com.agrolink.backend.model.OrderStatus.delivered;
+        review.setIsVerifiedPurchase(isVerified);
+
         if (revieweeId != null) {
             Profile reviewee = profileRepository.findById(revieweeId)
                     .orElseThrow(() -> new IllegalArgumentException("Reviewee profile not found"));
             review.setReviewee(reviewee);
+
+            // Fake Review Detection Heuristic: Rating Deviation
+            double currentAvg = reviewee.getBayesianAverage() != null ? reviewee.getBayesianAverage() : 3.0;
+            double deviation = Math.abs(rating - currentAvg);
+            if (deviation >= 2.5) {
+                review.setIsFlagged(true);
+                review.setDetectionScore(0.85); 
+                review.setFlagReason("High rating deviation (outlier)");
+            }
         }
 
         if (productId != null) {
@@ -103,33 +117,7 @@ public class ReviewService {
     }
 
     private void updateProfileRating(UUID profileId) {
-        List<Review> reviews = reviewRepository.findByRevieweeId(profileId);
-        if (reviews.isEmpty()) {
-            return;
-        }
-        double sum = reviews.stream().mapToInt(Review::getRating).sum();
-        double average = sum / reviews.size();
-
-        // Round to 1 decimal place
-        average = Math.round(average * 10.0) / 10.0;
-
-        Profile profile = profileRepository.findById(profileId).orElseThrow();
-        profile.setRating(average);
-
-        // Check Top Seller Status
-        // Only for FARMER role (though logic is generic, request specifically mentioned
-        // farmers)
-        if (profile.getRole() == com.agrolink.backend.model.UserRole.farmer) {
-            int orders = profile.getTotalOrders() != null ? profile.getTotalOrders() : 0;
-            java.math.BigDecimal earnings = profile.getTotalEarnings() != null ? profile.getTotalEarnings()
-                    : java.math.BigDecimal.ZERO;
-
-            boolean isTopSeller = orders >= 100 && average >= 4.8
-                    && earnings.compareTo(new java.math.BigDecimal("100000")) >= 0;
-            profile.setIsTopSeller(isTopSeller);
-        }
-
-        profileRepository.save(profile);
+        rankingService.updateFarmerRanksAndKPIs(profileId);
     }
 
     @Transactional

@@ -26,4 +26,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
                         @org.springframework.data.repository.query.Param("driverLat") double driverLat,
                         @org.springframework.data.repository.query.Param("driverLon") double driverLon,
                         @org.springframework.data.repository.query.Param("radiusKm") double radiusKm);
+
+        List<Order> findByFarmerIdAndCreatedAtAfter(UUID farmerId, java.time.LocalDateTime createdAt);
 }

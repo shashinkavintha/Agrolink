@@ -4,5 +4,6 @@ public enum UserRole {
     farmer,
     buyer,
     driver,
-    admin
+    admin,
+    supplier
 }

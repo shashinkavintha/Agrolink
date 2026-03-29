@@ -41,6 +41,7 @@ function deg2rad(deg) {
 export default function DriverDashboard() {
     const [loads, setLoads] = useState([]);
     const [selectedLoad, setSelectedLoad] = useState(null);
+    const [acceptingId, setAcceptingId] = useState(null); // Fast feedback loading state
     const [driverLocation, setDriverLocation] = useState(null);
     const [activeRoute, setActiveRoute] = useState(null); // { from: {lat, lng}, to: {lat, lng} }
     const [routePath, setRoutePath] = useState(null); // Array of [lat, lng] coordinates for the actual road path
@@ -142,26 +143,43 @@ export default function DriverDashboard() {
     // Fetch available jobs (Nearby) & My Ongoing Job
     const fetchAllJobs = async (lat, lng) => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
             if (!user) return;
 
             // 1. Fetch available jobs (Nearby)
             const nearbyRes = await fetch(`/api/orders/nearby?lat=${lat}&lon=${lng}`);
             if (nearbyRes.ok) {
                 const nearbyOrders = await nearbyRes.json();
-                const mappedLoads = nearbyOrders.map(o => ({
-                    id: o.id,
-                    description: o.items ? o.items.map(i => i.product ? i.product.name : i.customItemName).join(', ') : 'Delivery',
-                    price: o.totalAmount,
-                    pickup_address: o.pickupAddress || (o.pickupLatitude ? `Lat: ${o.pickupLatitude.toFixed(4)}, Lng: ${o.pickupLongitude.toFixed(4)}` : 'Farm Location'),
-                    dropoff_address: o.deliveryAddress,
-                    pickup_lat: o.pickupLatitude,
-                    pickup_lng: o.pickupLongitude,
-                    delivery_lat: o.deliveryLatitude,
-                    delivery_lng: o.deliveryLongitude,
-                    status: o.status,
-                    farmer_id: o.farmer ? o.farmer.id : null
-                }));
+                const mappedLoads = nearbyOrders.map(o => {
+                    let px = o.pickupLatitude || (o.farmer ? o.farmer.latitude : null);
+                    let py = o.pickupLongitude || (o.farmer ? o.farmer.longitude : null);
+                    let dx = o.deliveryLatitude || (o.buyer ? o.buyer.latitude : null);
+                    let dy = o.deliveryLongitude || (o.buyer ? o.buyer.longitude : null);
+                    
+                    let dist = 0;
+                    if (px && py && dx && dy) {
+                        dist = calculateDistance(px, py, dx, dy);
+                    }
+                    
+                    const hireFee = dist > 0 ? Math.round(250 + (dist * 120)) : 450;
+
+                    return {
+                        id: o.id,
+                        description: o.items ? o.items.map(i => `${i.quantity || 1}x ${i.product ? i.product.name : i.customItemName}`).join(', ') : 'Packages',
+                        price: o.totalAmount, // Goods cost
+                        hireFee: hireFee,
+                        distance: dist > 0 ? dist.toFixed(1) + ' km' : 'Distance N/A',
+                        pickup_address: o.pickupAddress || (px ? `Lat: ${px.toFixed(4)}, Lng: ${py.toFixed(4)}` : 'Farm Location'),
+                        dropoff_address: o.deliveryAddress || 'Customer Location',
+                        pickup_lat: px,
+                        pickup_lng: py,
+                        delivery_lat: dx,
+                        delivery_lng: dy,
+                        status: o.status,
+                        farmer_id: o.farmer ? o.farmer.id : null
+                    };
+                });
                 setLoads(mappedLoads);
             }
 
@@ -236,7 +254,8 @@ export default function DriverDashboard() {
     // Initial load ensure we fetch even if GPS delays
     useEffect(() => {
         const init = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
             if (user) fetchAllJobs(0, 0); // Try fetch active job even without loc
         };
         init();
@@ -251,7 +270,8 @@ export default function DriverDashboard() {
     // Fetch Driver Profile (Rating/Reviews) and Initial Jobs
     useEffect(() => {
         const fetchInitialData = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
             if (!user) return;
 
             // 1. Last Known Location fallback if GPS isn't ready
@@ -318,9 +338,12 @@ export default function DriverDashboard() {
     // Handle accepting a load
     const handleAcceptLoad = async (load) => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            setAcceptingId(load.id);
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
             if (!user) {
                 alert("Please login first");
+                setAcceptingId(null);
                 return;
             }
 
@@ -364,6 +387,8 @@ export default function DriverDashboard() {
         } catch (e) {
             console.error("Accept error:", e);
             alert("Error accepting job");
+        } finally {
+            setAcceptingId(null);
         }
     };
 
@@ -436,11 +461,14 @@ export default function DriverDashboard() {
     };
 
     // Handle Cancel Job (Manual override for stuck orders)
+    const [isCancelling, setIsCancelling] = useState(false);
     const handleCancelJob = async () => {
         if (!confirm("Are you sure you want to cancel ALL active jobs? This will clear your dashboard.")) return;
 
+        setIsCancelling(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
             if (!user) return;
 
             // 1. Fetch all jobs for this driver
@@ -479,6 +507,8 @@ export default function DriverDashboard() {
         } catch (e) {
             console.error("Cancel error:", e);
             alert("Error cancelling jobs. Please check connection.");
+        } finally {
+            setIsCancelling(false);
         }
     };
 
@@ -747,8 +777,8 @@ export default function DriverDashboard() {
                                             <span className="text-[8px] opacity-60">{(pickupDistance * 1000).toFixed(0)}m remaining</span>
                                         )}
                                     </button>
-                                    <button onClick={handleCancelJob} className="w-full py-3 bg-red-50 text-red-500 rounded-xl font-bold uppercase tracking-widest text-[9px] hover:bg-red-100 transition-colors">
-                                        Cancel Job
+                                    <button onClick={handleCancelJob} disabled={isCancelling} className="w-full py-3 bg-red-50 text-red-500 rounded-xl font-bold uppercase tracking-widest text-[9px] hover:bg-red-100 transition-colors disabled:opacity-50">
+                                        {isCancelling ? 'Cancelling...' : 'Cancel Job'}
                                     </button>
                                 </div>
                             )}
@@ -767,8 +797,8 @@ export default function DriverDashboard() {
                             {/* Fallback Cancel for any other weird state */}
                             {jobStatus !== 'ready_to_ship' && jobStatus !== 'shipped' && (
                                 <div className="space-y-2 mt-4">
-                                    <button onClick={handleCancelJob} className="w-full py-3 bg-red-50 text-red-500 rounded-xl font-bold uppercase tracking-widest text-[9px] hover:bg-red-100 transition-colors">
-                                        Force Cancel Active Job
+                                    <button onClick={handleCancelJob} disabled={isCancelling} className="w-full py-3 bg-red-50 text-red-500 rounded-xl font-bold uppercase tracking-widest text-[9px] hover:bg-red-100 transition-colors disabled:opacity-50">
+                                        {isCancelling ? 'Cancelling...' : 'Force Cancel Active Job'}
                                     </button>
                                 </div>
                             )}
@@ -787,22 +817,39 @@ export default function DriverDashboard() {
                             ) : (
                                 <div className="space-y-2 max-h-[25vh] overflow-y-auto pr-1">
                                     {loads.map(load => (
-                                        <div key={load.id} onClick={() => setSelectedLoad(load)} className={`p-4 rounded-2xl border transition-all cursor-pointer ${selectedLoad?.id === load.id ? 'border-[#1a7935] bg-green-50' : 'border-gray-50 bg-gray-50 hover:bg-gray-100'}`}>
-                                            <div className="flex justify-between items-start">
+                                        <div key={load.id} onClick={() => setSelectedLoad(load)} className={`p-4 rounded-2xl border transition-all cursor-pointer ${selectedLoad?.id === load.id ? 'border-[#1a7935] bg-green-50 shadow-md' : 'border-gray-50 bg-gray-50 hover:bg-gray-100'}`}>
+                                            <div className="flex justify-between items-start mb-2">
                                                 <div className="flex-1 pr-4">
-                                                    <h4 className="font-bold text-gray-800 text-sm line-clamp-1">{load.description}</h4>
-                                                    <div className="flex items-center gap-1.5 mt-1 text-gray-500">
-                                                        <MapPin className="h-3 w-3" />
-                                                        <span className="text-[10px] truncate max-w-[150px] font-medium uppercase">{load.pickup_address}</span>
-                                                    </div>
+                                                    <h4 className="font-black text-gray-800 text-sm leading-tight">{load.description}</h4>
+                                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Order Goods: Rs.{load.price}</p>
                                                 </div>
-                                                <div className="text-right">
-                                                    <span className="text-sm font-black text-[#1a7935]">Rs.{load.price}</span>
+                                                <div className="text-right bg-white px-3 py-1.5 rounded-xl shadow-sm border border-green-100">
+                                                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Your Earnings</p>
+                                                    <span className="text-lg font-black text-[#1a7935]">Rs.{load.hireFee}</span>
                                                 </div>
                                             </div>
+                                            
+                                            <div className="flex flex-col gap-2 mt-3 p-3 bg-white rounded-xl border border-gray-100">
+                                                <div className="flex items-start gap-2">
+                                                    <MapPin className="h-4 w-4 text-[#1a7935] shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Pickup ({load.distance})</p>
+                                                        <span className="text-xs text-gray-700 font-medium line-clamp-2">{load.pickup_address}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="w-0.5 h-3 bg-gray-200 ml-2 border-l border-dashed border-gray-300"></div>
+                                                <div className="flex items-start gap-2">
+                                                    <Package className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Dropoff</p>
+                                                        <span className="text-xs text-gray-700 font-medium line-clamp-2">{load.dropoff_address}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             {selectedLoad?.id === load.id && (
-                                                <button onClick={(e) => { e.stopPropagation(); handleAcceptLoad(load); }} className="w-full mt-3 py-2.5 bg-[#1a7935] text-white rounded-xl text-[9px] font-black uppercase tracking-wider animate-in fade-in slide-in-from-top-2">
-                                                    Accept Job
+                                                <button onClick={(e) => { e.stopPropagation(); handleAcceptLoad(load); }} disabled={acceptingId === load.id} className="w-full mt-4 py-3 bg-[#1a7935] text-white rounded-xl text-[10px] font-black uppercase tracking-wider animate-in fade-in slide-in-from-top-2 disabled:opacity-50 shadow-lg hover:bg-[#145d29]">
+                                                    {acceptingId === load.id ? 'Accepting Job...' : 'Accept Job'}
                                                 </button>
                                             )}
                                         </div>

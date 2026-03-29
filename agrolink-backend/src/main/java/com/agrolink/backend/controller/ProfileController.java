@@ -44,6 +44,17 @@ public class ProfileController {
         return ResponseEntity.ok(profiles);
     }
 
+    @GetMapping("/farmers")
+    public ResponseEntity<List<Profile>> getFarmers() {
+        return ResponseEntity.ok(profileService.getProfilesByRole(com.agrolink.backend.model.UserRole.farmer));
+    }
+
+    @PostMapping("/{id}/recalculate-ranks")
+    public ResponseEntity<Void> recalculateRanks(@PathVariable UUID id) {
+        profileService.recalculateRanks(id);
+        return ResponseEntity.ok().build();
+    }
+
     @PutMapping("/{id}/approve")
     public ResponseEntity<Profile> approveProfile(@PathVariable UUID id) {
         Profile profile = profileService.approveProfile(id);

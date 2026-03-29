@@ -43,6 +43,18 @@ public class Review {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Column(name = "is_verified_purchase")
+    private Boolean isVerifiedPurchase = false;
+
+    @Column(name = "is_flagged")
+    private Boolean isFlagged = false;
+
+    @Column(name = "detection_score")
+    private Double detectionScore = 0.0;
+
+    @Column(name = "flag_reason")
+    private String flagReason;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
@@ -112,6 +124,38 @@ public class Review {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Boolean getIsVerifiedPurchase() {
+        return isVerifiedPurchase;
+    }
+
+    public void setIsVerifiedPurchase(Boolean isVerifiedPurchase) {
+        this.isVerifiedPurchase = isVerifiedPurchase;
+    }
+
+    public Boolean getIsFlagged() {
+        return isFlagged;
+    }
+
+    public void setIsFlagged(Boolean isFlagged) {
+        this.isFlagged = isFlagged;
+    }
+
+    public Double getDetectionScore() {
+        return detectionScore;
+    }
+
+    public void setDetectionScore(Double detectionScore) {
+        this.detectionScore = detectionScore;
+    }
+
+    public String getFlagReason() {
+        return flagReason;
+    }
+
+    public void setFlagReason(String flagReason) {
+        this.flagReason = flagReason;
     }
 
     public Product getProduct() {

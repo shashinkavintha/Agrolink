@@ -21,7 +21,15 @@ export default function Marketplace() {
             try {
                 const prodRes = await axios.get('/api/farmer-shop-products');
 
-                const productsData = prodRes.data;
+                const productsData = prodRes.data.filter(p => p.status === 'available' || p.status === 'approved');
+                
+                // Sort by Wilson score descending
+                productsData.sort((a, b) => {
+                    const scoreA = a.admin?.wilsonScore || 0;
+                    const scoreB = b.admin?.wilsonScore || 0;
+                    return scoreB - scoreA;
+                });
+                
                 setProducts(productsData);
 
                 // Extract unique categories from the loaded products

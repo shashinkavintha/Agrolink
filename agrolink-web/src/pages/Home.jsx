@@ -14,20 +14,37 @@ export default function Home() {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState(null);
   const [userStatus, setUserStatus] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState(false);
 
-  useEffect(() => {
+  const fetchProfile = () => {
     if (user?.id) {
+      setProfileLoading(true);
+      setProfileError(false);
       // Fetch profile to get role
       axios.get(`/api/profiles/${user.id}`)
         .then(res => {
           setUserRole(res.data.role);
           setUserStatus(res.data.status);
+          localStorage.setItem('userRole', res.data.role); // Optional cache
         })
-        .catch(err => console.error("Failed to fetch profile", err));
+        .catch(err => {
+          console.error("Failed to fetch profile", err);
+          setProfileError(true);
+          // try fallback cache
+          const cachedRole = localStorage.getItem('userRole');
+          if (cachedRole) setUserRole(cachedRole);
+        })
+        .finally(() => setProfileLoading(false));
     }
+  };
+
+  useEffect(() => {
+    fetchProfile();
   }, [user]);
 
   const handleLogout = async () => {
+    localStorage.removeItem('userRole');
     await signOut();
     navigate('/');
     window.location.reload(); // Ensure clean state
@@ -38,6 +55,7 @@ export default function Home() {
       case 'admin': return '/admin/dashboard';
       case 'farmer': return '/farmer/dashboard';
       case 'driver': return '/driver/dashboard';
+      case 'supplier': return '/supplier/dashboard';
       default: return '/'; // Buyer stays on home
     }
   };
@@ -114,50 +132,73 @@ export default function Home() {
                     <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/50">
                       <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Signed in as</p>
                       <p className="text-sm font-medium text-gray-900 truncate" title={user.email}>{user.email}</p>
-                      {userRole && <p className="text-xs text-[#1a7935] mt-1 capitalize font-semibold">{userRole}</p>}
+                      {/* Loading State or Role Display */}
+                      {profileLoading ? (
+                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1 italic">
+                          <span>Loading role...</span>
+                        </p>
+                      ) : userRole ? (
+                        <p className="text-xs text-[#1a7935] mt-1 capitalize font-semibold">{userRole}</p>
+                      ) : profileError ? (
+                        <p className="text-[10px] text-red-500 mt-1 flex items-center justify-between">
+                          Failed to load role
+                          <button onClick={fetchProfile} className="underline font-semibold hover:text-red-700">Retry</button>
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="py-1">
-                      {userRole !== 'buyer' && userStatus === 'approved' && (
-                        <button
-                          onClick={() => navigate(getDashboardLink())}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-[#1a7935] flex items-center transition-colors"
-                        >
-                          <LayoutDashboard className="h-4 w-4 mr-2" />
-                          Dashboard
-                        </button>
-                      )}
-
-                      {/* Verification Status for Non-Approved Farmers/Drivers */}
-                      {(userRole === 'farmer' || userRole === 'driver') && userStatus !== 'approved' && (
-                        <div className="px-4 py-2 text-xs text-amber-600 bg-amber-50 mx-2 rounded border border-amber-200 mb-1">
-                          Verification Pending
+                      {/* Links container */}
+                      {profileLoading && !userRole && (
+                        <div className="px-4 py-2 text-xs text-gray-400 italic text-center animate-pulse">
+                          Fetching your menu...
                         </div>
                       )}
-                      {/* For buyers, maybe 'My Orders' or similar? putting generic Dashboard for now if user wants */}
-                      {userRole === 'buyer' && (
+
+                      {!profileLoading && userRole && (
                         <>
-                          <button
-                            onClick={() => navigate('/my-orders')}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-[#1a7935] flex items-center transition-colors"
-                          >
-                            <ShoppingBag className="h-4 w-4 mr-2" />
-                            My Orders
-                          </button>
-                          <button
-                            onClick={() => navigate('/post-request')}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-[#1a7935] flex items-center transition-colors"
-                          >
-                            <LayoutDashboard className="h-4 w-4 mr-2" />
-                            Post Request
-                          </button>
-                          <button
-                            onClick={() => navigate('/my-requests')}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-[#1a7935] flex items-center transition-colors"
-                          >
-                            <LayoutDashboard className="h-4 w-4 mr-2" />
-                            My Requests
-                          </button>
+                          {userRole !== 'buyer' && (userStatus === 'approved' || localStorage.getItem('userRole') === 'admin') && (
+                            <button
+                              onClick={() => navigate(getDashboardLink())}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-[#1a7935] flex items-center transition-colors"
+                            >
+                              <LayoutDashboard className="h-4 w-4 mr-2" />
+                              Dashboard
+                            </button>
+                          )}
+
+                          {/* Verification Status for Non-Approved Users */}
+                          {(userRole === 'farmer' || userRole === 'driver' || userRole === 'supplier') && userStatus !== 'approved' && (
+                            <div className="px-4 py-2 text-xs text-amber-600 bg-amber-50 mx-2 rounded border border-amber-200 mb-1">
+                              Verification Pending
+                            </div>
+                          )}
+                          {/* For buyers */}
+                          {userRole === 'buyer' && (
+                            <>
+                              <button
+                                onClick={() => navigate('/my-orders')}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-[#1a7935] flex items-center transition-colors"
+                              >
+                                <ShoppingBag className="h-4 w-4 mr-2" />
+                                My Orders
+                              </button>
+                              <button
+                                onClick={() => navigate('/post-request')}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-[#1a7935] flex items-center transition-colors"
+                              >
+                                <LayoutDashboard className="h-4 w-4 mr-2" />
+                                Post Request
+                              </button>
+                              <button
+                                onClick={() => navigate('/my-requests')}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-[#1a7935] flex items-center transition-colors"
+                              >
+                                <LayoutDashboard className="h-4 w-4 mr-2" />
+                                My Requests
+                              </button>
+                            </>
+                          )}
                         </>
                       )}
                     </div>
@@ -235,45 +276,59 @@ export default function Home() {
                         </div>
                         <div>
                           <p className="text-sm font-medium">{user.email}</p>
-                          <p className="text-xs text-gray-500 capitalize">{userRole}</p>
+                          {profileLoading ? (
+                            <p className="text-xs text-gray-500 italic">Loading role...</p>
+                          ) : userRole ? (
+                            <p className="text-xs text-gray-500 capitalize">{userRole}</p>
+                          ) : profileError ? (
+                            <button onClick={fetchProfile} className="text-xs text-red-500 underline">Failed. Retry?</button>
+                          ) : null}
                         </div>
                       </div>
 
-                      {userRole !== 'buyer' && userStatus === 'approved' && (
-                        <button
-                          onClick={() => navigate(getDashboardLink())}
-                          className="block w-full text-left py-2 hover:text-[#1a7935] font-medium transition-colors"
-                        >
-                          Dashboard
-                        </button>
+                      {profileLoading && !userRole && (
+                        <p className="text-xs text-gray-400 italic py-2 animate-pulse">Loading menu items...</p>
                       )}
 
-                      {(userRole === 'farmer' || userRole === 'driver') && userStatus !== 'approved' && (
-                        <div className="px-2 py-1 text-xs text-amber-600 bg-amber-50 rounded border border-amber-200 mb-2 w-fit">
-                          Verification Pending
-                        </div>
-                      )}
-
-                      {userRole === 'buyer' && (
+                      {!profileLoading && userRole && (
                         <>
-                          <button
-                            onClick={() => navigate('/my-orders')}
-                            className="block w-full text-left py-2 hover:text-[#1a7935] font-medium transition-colors"
-                          >
-                            My Orders
-                          </button>
-                          <button
-                            onClick={() => navigate('/post-request')}
-                            className="block w-full text-left py-2 hover:text-[#1a7935] font-medium transition-colors"
-                          >
-                            Post Request
-                          </button>
-                          <button
-                            onClick={() => navigate('/my-requests')}
-                            className="block w-full text-left py-2 hover:text-[#1a7935] font-medium transition-colors"
-                          >
-                            My Requests
-                          </button>
+                          {userRole !== 'buyer' && (userStatus === 'approved' || localStorage.getItem('userRole') === 'admin') && (
+                            <button
+                              onClick={() => navigate(getDashboardLink())}
+                              className="block w-full text-left py-2 hover:text-[#1a7935] font-medium transition-colors"
+                            >
+                              Dashboard
+                            </button>
+                          )}
+
+                          {(userRole === 'farmer' || userRole === 'driver' || userRole === 'supplier') && userStatus !== 'approved' && (
+                            <div className="px-2 py-1 text-xs text-amber-600 bg-amber-50 rounded border border-amber-200 mb-2 w-fit">
+                              Verification Pending
+                            </div>
+                          )}
+
+                          {userRole === 'buyer' && (
+                            <>
+                              <button
+                                onClick={() => navigate('/my-orders')}
+                                className="block w-full text-left py-2 hover:text-[#1a7935] font-medium transition-colors"
+                              >
+                                My Orders
+                              </button>
+                              <button
+                                onClick={() => navigate('/post-request')}
+                                className="block w-full text-left py-2 hover:text-[#1a7935] font-medium transition-colors"
+                              >
+                                Post Request
+                              </button>
+                              <button
+                                onClick={() => navigate('/my-requests')}
+                                className="block w-full text-left py-2 hover:text-[#1a7935] font-medium transition-colors"
+                              >
+                                My Requests
+                              </button>
+                            </>
+                          )}
                         </>
                       )}
 

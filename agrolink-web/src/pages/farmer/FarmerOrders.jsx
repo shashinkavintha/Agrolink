@@ -51,48 +51,55 @@ export default function FarmerOrders() {
 
         const confirmAccept = async (lat = null, lng = null) => {
             try {
+                // Change button text to "Accepting..."
+                setAcceptingId("PROCESSING_" + orderId); 
+                
                 let url = `/api/orders/${orderId}/farmer-accept`;
                 if (lat && lng) {
                     url += `?lat=${lat}&lon=${lng}`;
                 }
 
                 await axios.put(url);
-                // Notification handled by UI update (status change)
-
+                
                 // Refresh orders
                 const res = await axios.get(`/api/orders?farmerId=${user.id}`);
                 setOrders(res.data);
 
-                // Keep modal open and update status to show Radar UI
-                setSelectedOrder(prev => ({ ...prev, status: 'accepted' }));
+                // Update modal state
+                setSelectedOrder(prev => {
+                    if (prev && prev.id === orderId) {
+                        return { ...prev, status: 'accepted' };
+                    }
+                    return prev;
+                });
+
             } catch (error) {
                 console.error("Failed to accept order", error);
-                alert("Failed to accept order");
+                alert("Failed to accept order: " + (error.response?.data || error.message));
             } finally {
                 setAcceptingId(null);
             }
         };
 
+        // Try to get location
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const { latitude, longitude } = position.coords;
-                    console.log("📍 Captured High-Accuracy Location:", latitude, longitude);
                     confirmAccept(latitude, longitude);
                 },
                 (error) => {
                     console.warn("Location error:", error.message);
-                    alert("⚠️ GPS Error: We couldn't detect your precise location. The driver will be directed to your profile address. Please enable High Accuracy GPS for better pickup.");
-                    confirmAccept(); // Proceed with profile default
+                    // Non-blocking approach: just use profile address
+                    confirmAccept(); 
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 10000,
+                    timeout: 5000, // Reduced timeout
                     maximumAge: 0
                 }
             );
         } else {
-            alert("Geolocation not supported by browser. Using profile address.");
             confirmAccept();
         }
     };
@@ -262,10 +269,14 @@ export default function FarmerOrders() {
                                         onClick={() => {
                                             handleAcceptOrder(selectedOrder.id);
                                         }}
-                                        disabled={acceptingId === selectedOrder.id}
+                                        disabled={!!acceptingId}
                                         className="flex-1 bg-[#1a7935] text-white py-3 rounded-xl font-bold hover:bg-[#145d29] flex justify-center items-center gap-2 shadow-lg shadow-green-900/10 disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                        {acceptingId === selectedOrder.id ? (
+                                        {acceptingId?.toString().startsWith('PROCESSING_') ? (
+                                            <>
+                                                <Loader2 className="h-5 w-5 animate-spin" /> Accepting...
+                                            </>
+                                        ) : acceptingId === selectedOrder.id ? (
                                             <>
                                                 <Loader2 className="h-5 w-5 animate-spin" /> Locating...
                                             </>

@@ -5,26 +5,49 @@ import { Bell, Search, CheckCircle, Clock } from 'lucide-react';
 export default function FarmerRequests() {
     const { user } = useAuth();
     const [requests, setRequests] = useState([]);
+    const [allMarketRequests, setAllMarketRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('notifications'); // notifications, all_requests
+    const [activeTab, setActiveTab] = useState('notifications'); 
+    const [isTopSeller, setIsTopSeller] = useState(false);
 
     useEffect(() => {
         if (user) {
-            fetchRequests();
+            fetchInitialData();
         }
-    }, [user]);
+    }, [user, activeTab]);
 
-    const fetchRequests = async () => {
+    const fetchInitialData = async () => {
         if (!user) return;
+        setLoading(true);
 
         try {
-            // Fetch notifications for top seller matches
-            const notifResponse = await fetch(`/api/notifications/${user.id}`);
-            const notifications = await notifResponse.json();
+            // Check Profile for Top Seller Status
+            const profileRes = await fetch(`/api/profiles/${user.id}`);
+            if (profileRes.ok) {
+                const profile = await profileRes.json();
+                
+                const ws = profile.wilsonScore || 0;
+                const odr = profile.orderDefectRate || 0;
+                const lsr = profile.lateShipmentRate || 0;
+                const cancel = profile.preFulfillmentCancellationRate || 0;
 
-            // In a real app we'd fetch actual request details from the notification.relatedId
-            // For now, we'll just show the notifications as "Requests"
-            setRequests(notifications);
+                const topSellerStatus = ws >= 0.5 && odr <= 1.0 && lsr <= 4.0 && cancel <= 2.5;
+                setIsTopSeller(topSellerStatus);
+
+                if (topSellerStatus) {
+                    if (activeTab === 'notifications') {
+                        const notifResponse = await fetch(`/api/notifications/${user.id}`);
+                        const notifications = await notifResponse.json();
+                        setRequests(notifications);
+                    } else if (activeTab === 'all') {
+                        const allReqResponse = await fetch(`/api/requests`);
+                        const allReqs = await allReqResponse.json();
+                        // Filter out ACCEPTED ones
+                        const openReqs = allReqs.filter(r => r.status === 'OPEN');
+                        setAllMarketRequests(openReqs);
+                    }
+                }
+            }
         } catch (error) {
             console.error(error);
         } finally {
@@ -35,11 +58,12 @@ export default function FarmerRequests() {
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
 
-    const handleViewDetails = async (notification) => {
-        if (!notification.relatedId) return;
+    const handleViewDetails = async (item) => {
+        const targetId = item.relatedId || item.id;
+        if (!targetId) return;
         setDetailsLoading(true);
         try {
-            const response = await fetch(`/api/requests/${notification.relatedId}`);
+            const response = await fetch(`/api/requests/${targetId}`);
             if (response.ok) {
                 const data = await response.json();
                 setSelectedRequest(data);
@@ -57,26 +81,31 @@ export default function FarmerRequests() {
         setSelectedRequest(null);
     };
 
-    const handleAcceptRequest = async () => {
+    const handleNavigateToChat = async () => {
         if (!selectedRequest || !user) return;
-
+        setDetailsLoading(true);
         try {
-            const response = await fetch(`/api/requests/${selectedRequest.id}/accept/${user.id}`, {
-                method: 'POST'
+            // First create or get conversation
+            const payload = {
+                farmerId: user.id, // we are the farmer
+                buyerId: selectedRequest.buyer.id
+            };
+            const response = await fetch('/api/chat/conversations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
-                // Show success feedback
-                alert('Request accepted successfully! An order has been created.');
+                const conv = await response.json();
                 closeDetails();
-                // Optionally refresh requests or remove the notification
-            } else {
-                console.error("Failed to accept request");
-                alert('Failed to accept request.');
+                window.location.href = `/chat/${conv.id}`; // navigate
             }
         } catch (error) {
-            console.error("Error accepting request:", error);
-            alert('Error accepting request.');
+            console.error("Error creating chat:", error);
+            alert("Could not start chat.");
+        } finally {
+            setDetailsLoading(false);
         }
     };
 
@@ -90,64 +119,94 @@ export default function FarmerRequests() {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 flex gap-4">
-                    <button
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'notifications' ? 'bg-green-100 text-green-700' : 'text-gray-600 hover:bg-gray-50'}`}
-                        onClick={() => setActiveTab('notifications')}
-                    >
-                        My Notifications
-                    </button>
-                    <button
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'all' ? 'bg-green-100 text-green-700' : 'text-gray-600 hover:bg-gray-50'}`}
-                        onClick={() => setActiveTab('all')}
-                    >
-                        All Market Requests
-                    </button>
-                </div>
-
-                {loading ? (
-                    <div className="p-8 text-center text-gray-400">Loading requests...</div>
-                ) : requests.length === 0 ? (
-                    <div className="p-12 text-center">
-                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Bell className="w-8 h-8 text-gray-300" />
+                {!isTopSeller && !loading ? (
+                    <div className="p-16 text-center">
+                        <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <svg className="w-10 h-10 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
                         </div>
-                        <h3 className="text-lg font-medium text-gray-900">No new requests</h3>
-                        <p className="text-gray-500 mt-2">You're all caught up! Check back later.</p>
+                        <h3 className="text-2xl font-black text-gray-900 mb-2">Exclusive Top Seller Feature</h3>
+                        <p className="text-gray-500 max-w-md mx-auto mb-8">
+                            Only farmers who have achieved <strong className="text-yellow-600">Top Seller</strong> status can receive and view custom buyer requests. Improve your Wilson Score and maintain excellent delivery rates to unlock this feature!
+                        </p>
+                        <a href="/farmer/dashboard" className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-200 transition-all">
+                            Check Performance Targets
+                        </a>
                     </div>
                 ) : (
-                    <div className="divide-y divide-gray-100">
-                        {requests.map((req) => (
-                            <div key={req.id} className={`p-6 hover:bg-gray-50 transition-colors ${!req.isRead ? 'bg-blue-50/50' : ''}`}>
-                                <div className="flex justify-between items-start">
-                                    <div className="flex gap-4">
-                                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                            <Bell className="w-5 h-5 text-green-600" />
-                                        </div>
-                                        <div>
-                                            <h4 className="font-semibold text-gray-900">{req.title}</h4>
-                                            <p className="text-gray-600 mt-1">{req.message}</p>
-                                            <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-                                                <span className="flex items-center gap-1">
-                                                    <Clock className="w-4 h-4" />
-                                                    {new Date(req.createdAt).toLocaleDateString()}
-                                                </span>
-                                                <button
-                                                    onClick={() => handleViewDetails(req)}
-                                                    className="text-green-600 font-medium hover:underline"
-                                                >
-                                                    {detailsLoading && selectedRequest?.id === req.relatedId ? 'Loading...' : 'View Details'}
-                                                </button>
+                    <>
+                        <div className="p-4 border-b border-gray-100 flex gap-4">
+                            <button
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'notifications' ? 'bg-green-100 text-green-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                                onClick={() => setActiveTab('notifications')}
+                            >
+                                My Notifications
+                            </button>
+                            <button
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'all' ? 'bg-green-100 text-green-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                                onClick={() => setActiveTab('all')}
+                            >
+                                All Market Requests
+                            </button>
+                        </div>
+
+                        {loading ? (
+                            <div className="p-8 text-center text-gray-400">Loading requests...</div>
+                        ) : activeTab === 'notifications' && requests.length === 0 ? (
+                            <div className="p-12 text-center">
+                                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Bell className="w-8 h-8 text-gray-300" />
+                                </div>
+                                <h3 className="text-lg font-medium text-gray-900">No new notifications</h3>
+                                <p className="text-gray-500 mt-2">You're all caught up! Check back later.</p>
+                            </div>
+                        ) : activeTab === 'all' && allMarketRequests.length === 0 ? (
+                            <div className="p-12 text-center">
+                                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Search className="w-8 h-8 text-gray-300" />
+                                </div>
+                                <h3 className="text-lg font-medium text-gray-900">No market requests</h3>
+                                <p className="text-gray-500 mt-2">There are no open buyer requests right now.</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-100">
+                                {(activeTab === 'notifications' ? requests : allMarketRequests).map((item) => {
+                                    const isNotif = activeTab === 'notifications';
+                                    return (
+                                        <div key={item.id} className={`p-6 hover:bg-gray-50 transition-colors ${isNotif && !item.isRead ? 'bg-blue-50/50' : ''}`}>
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex gap-4">
+                                                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                        <Bell className="w-5 h-5 text-green-600" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-semibold text-gray-900">{isNotif ? item.title : `${item.category} Request`}</h4>
+                                                        <p className="text-gray-600 mt-1">{isNotif ? item.message : item.description}</p>
+                                                        <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+                                                            <span className="flex items-center gap-1">
+                                                                <Clock className="w-4 h-4" />
+                                                                {new Date(item.createdAt).toLocaleDateString()}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => handleViewDetails(item)}
+                                                                className="text-green-600 font-medium hover:underline"
+                                                            >
+                                                                {detailsLoading && selectedRequest?.id === (item.relatedId || item.id) ? 'Loading...' : 'View Details'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {isNotif && !item.isRead && (
+                                                    <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                                                )}
                                             </div>
                                         </div>
-                                    </div>
-                                    {!req.isRead && (
-                                        <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-                                    )}
-                                </div>
+                                    );
+                                })}
                             </div>
-                        ))}
-                    </div>
+                        )}
+                    </>
                 )}
             </div>
 
@@ -209,7 +268,15 @@ export default function FarmerRequests() {
                                 Close
                             </button>
                             <button
-                                onClick={handleAcceptRequest}
+                                onClick={handleNavigateToChat}
+                                disabled={detailsLoading}
+                                className="px-5 py-2.5 bg-blue-600 text-white font-medium hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-200 transition-colors flex items-center gap-2"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                Negotiate in Chat
+                            </button>
+                            <button
+                                onClick={() => alert('Direct accept coming soon')}
                                 className="px-5 py-2.5 bg-green-600 text-white font-medium hover:bg-green-700 rounded-xl shadow-lg shadow-green-200 transition-colors"
                             >
                                 Accept Request

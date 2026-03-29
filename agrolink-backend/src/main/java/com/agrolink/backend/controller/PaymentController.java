@@ -18,7 +18,23 @@ public class PaymentController {
 
     @GetMapping("/hash/{orderId}")
     public ResponseEntity<Map<String, String>> getPaymentHash(@PathVariable UUID orderId) {
-        return ResponseEntity.ok(payHereService.generateHash(orderId));
+        try {
+            Map<String, String> result = payHereService.generateHash(orderId);
+            System.out.println("=== PAYMENT HASH RETURNED TO FRONTEND ===");
+            result.forEach((key, value) -> {
+                if ("hash".equals(key)) {
+                    System.out.println(key + ": " + value);
+                } else {
+                    System.out.println(key + ": " + value);
+                }
+            });
+            System.out.println("==========================================");
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            System.err.println("ERROR generating payment hash: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
     }
 
     @PostMapping("/notify")

@@ -41,9 +41,9 @@ public class BuyerRequestService {
 
         List<Profile> topSellers = allFarmers.stream()
                 .filter(p -> {
-                    Double rating = p.getRating() != null ? p.getRating() : 0.0;
-                    System.out.println("DEBUG: Checking farmer: " + p.getEmail() + " | Rating: " + rating);
-                    return rating >= 0.0; // Threshold
+                    boolean isTop = Boolean.TRUE.equals(p.getIsTopSeller());
+                    System.out.println("DEBUG: Checking farmer: " + p.getEmail() + " | Top Seller: " + isTop);
+                    return isTop;
                 })
                 .toList();
 

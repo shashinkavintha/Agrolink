@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Bean;
 import java.util.List;
 
 @SpringBootApplication
+@org.springframework.scheduling.annotation.EnableScheduling
 public class AgrolinkBackendApplication {
 
 	@Bean

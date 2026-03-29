@@ -15,6 +15,7 @@ export default function ProductDetails() {
     const [activeTab, setActiveTab] = useState('description');
     const [reviews, setReviews] = useState([]);
     const [loadingReviews, setLoadingReviews] = useState(false);
+    const [chatLoading, setChatLoading] = useState(false);
 
     const { addToCart } = useCart();
 
@@ -42,6 +43,46 @@ export default function ProductDetails() {
         };
         fetchProduct();
     }, [id]);
+
+    const handleStartChat = async () => {
+        if (!user) {
+            alert("Please login to message the farmer.");
+            navigate('/login');
+            return;
+        }
+        
+        let farmerId = product.farmer?.id || product.farmerId;
+        // In the provided code snippet, the product usually has the farmer nested
+        if (!farmerId) {
+            alert("Farmer details not available for this product.");
+            return;
+        }
+
+        setChatLoading(true);
+        try {
+            const payload = {
+                farmerId: farmerId,
+                buyerId: user.id
+            };
+            const response = await fetch('/api/chat/conversations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                const conv = await response.json();
+                navigate(`/chat/${conv.id}`);
+            } else {
+                alert("Could not start chat. Please try again.");
+            }
+        } catch (error) {
+            console.error("Error creating chat:", error);
+            alert("Error starting chat.");
+        } finally {
+            setChatLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (product && activeTab === 'reviews') {
@@ -171,7 +212,7 @@ export default function ProductDetails() {
                                 </div>
 
                                 {/* Action Buttons */}
-                                <div className="flex gap-4 mb-8">
+                                <div className="flex gap-4 mb-4">
                                     <button
                                         className="flex-1 bg-[#1a7935] text-white py-4 rounded-xl font-bold hover:bg-[#145d29] transition-all shadow-lg hover:shadow-[#1a7935]/30 flex items-center justify-center gap-2 transform active:scale-[0.98]"
                                         onClick={() => {
@@ -197,6 +238,15 @@ export default function ProductDetails() {
                                         Buy Now
                                     </button>
                                 </div>
+                                
+                                <button
+                                    onClick={handleStartChat}
+                                    disabled={chatLoading}
+                                    className="w-full bg-blue-50 text-blue-600 font-bold py-4 rounded-xl mb-8 border border-blue-100 hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    {chatLoading ? 'Starting Chat...' : 'Message Farmer / Negotiate'}
+                                </button>
                             </div>
 
                             {/* Trust Badges */}
@@ -266,8 +316,8 @@ export default function ProductDetails() {
                                         <User className="h-8 w-8" />
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-lg text-gray-900">Registered Farmer</h4>
-                                        <p className="text-gray-500 text-sm">Member since 2024</p>
+                                        <h4 className="font-bold text-lg text-gray-900">{product.farmer?.fullName || 'Registered Farmer'}</h4>
+                                        <p className="text-gray-500 text-sm">Member since {new Date(product.farmer?.createdAt || Date.now()).getFullYear()}</p>
                                         <div className="flex items-center gap-2 mt-2 text-sm text-[#1a7935] bg-green-50 px-3 py-1 rounded-full w-fit">
                                             <ShieldCheck className="h-3 w-3" />
                                             Verified Seller
