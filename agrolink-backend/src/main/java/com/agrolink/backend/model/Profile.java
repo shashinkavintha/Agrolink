@@ -76,6 +76,21 @@ public class Profile {
     @Column(name = "total_orders")
     private Integer totalOrders = 0;
 
+    @Column(name = "wilson_score")
+    private Double wilsonScore = 0.0;
+
+    @Column(name = "bayesian_average")
+    private Double bayesianAverage = 0.0;
+
+    @Column(name = "order_defect_rate")
+    private Double orderDefectRate = 0.0;
+
+    @Column(name = "late_shipment_rate")
+    private Double lateShipmentRate = 0.0;
+
+    @Column(name = "pre_fulfillment_cancellation_rate")
+    private Double preFulfillmentCancellationRate = 0.0;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
@@ -275,5 +290,45 @@ public class Profile {
 
     public void setIsTopSeller(Boolean isTopSeller) {
         this.isTopSeller = isTopSeller;
+    }
+
+    public Double getWilsonScore() {
+        return wilsonScore;
+    }
+
+    public void setWilsonScore(Double wilsonScore) {
+        this.wilsonScore = wilsonScore;
+    }
+
+    public Double getBayesianAverage() {
+        return bayesianAverage;
+    }
+
+    public void setBayesianAverage(Double bayesianAverage) {
+        this.bayesianAverage = bayesianAverage;
+    }
+
+    public Double getOrderDefectRate() {
+        return orderDefectRate;
+    }
+
+    public void setOrderDefectRate(Double orderDefectRate) {
+        this.orderDefectRate = orderDefectRate;
+    }
+
+    public Double getLateShipmentRate() {
+        return lateShipmentRate;
+    }
+
+    public void setLateShipmentRate(Double lateShipmentRate) {
+        this.lateShipmentRate = lateShipmentRate;
+    }
+
+    public Double getPreFulfillmentCancellationRate() {
+        return preFulfillmentCancellationRate;
+    }
+
+    public void setPreFulfillmentCancellationRate(Double preFulfillmentCancellationRate) {
+        this.preFulfillmentCancellationRate = preFulfillmentCancellationRate;
     }
 }

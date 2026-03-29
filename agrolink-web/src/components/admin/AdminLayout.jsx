@@ -15,7 +15,8 @@ import {
     BarChart3,
     Sprout,
     LifeBuoy,
-    MessageCircle
+    MessageCircle,
+    Truck
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import Chatbot from '../IT24100581/Chatbot';
@@ -33,11 +34,13 @@ export default function AdminLayout() {
 
     const menuItems = [
         { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { path: '/admin/register-driver', label: 'Register Driver', icon: Truck },
         { path: '/admin/verification', label: 'User Verification', icon: ShieldCheck },
         { path: '/admin/users', label: 'User Management', icon: Users },
         { path: '/admin/products', label: 'Product Review', icon: CheckSquare },
         { path: '/admin/orders', label: 'Order Management', icon: ShoppingBag },
         { path: '/admin/farmers-shop', label: 'Farmers Shop', icon: Sprout },
+        { path: '/admin/kpis', label: 'Seller Performance', icon: BarChart3 },
         { path: '/admin/logistics', label: 'Live Logistics Map', icon: Map },
         { path: '/admin/support', label: 'Support Tickets', icon: LifeBuoy },
         { path: '/admin/settings', label: 'System Settings', icon: Settings },

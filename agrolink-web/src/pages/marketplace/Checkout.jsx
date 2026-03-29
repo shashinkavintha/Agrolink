@@ -1,74 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, CreditCard, ArrowLeft } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
-
 import { useGeolocation } from '../../hooks/useGeolocation';
 
-import PayHereCheckout from '../../components/payment/PayHereCheckout';
-
 const Checkout = () => {
-    const { cart, getCartTotal, clearCart } = useCart();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const { cart, getCartTotal, clearCart } = useCart();
+    
     const [formData, setFormData] = useState({
-        first_name: '',
-        last_name: '',
-        email: '',
-        phone: '',
-        address: '',
-        city: '',
-        country: 'Sri Lanka',
+        first_name: user?.firstName || '',
+        last_name: user?.lastName || '',
+        email: user?.email || '',
+        phone: user?.phone || '',
+        address: user?.address || '',
+        city: user?.city || '',
     });
 
-    const { location: gpsLocation, error: gpsError, loading: gpsLoading } = useGeolocation(true); // Auto-detect location
-    const [paymentOrder, setPaymentOrder] = useState(null); // State to trigger PayHere
+    const [status, setStatus] = useState({ state: 'idle', message: '' });
+    const { location: gpsLocation } = useGeolocation();
 
     const totalAmount = getCartTotal();
 
-    const handleChange = (e) => {
+    useEffect(() => {
+        if (cart.length === 0 && status.state !== 'success') {
+            navigate('/cart');
+        }
+    }, [cart, navigate, status.state]);
+
+    const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const { user } = useAuth(); // Assuming useAuth is imported at top.
-
-    const handlePayment = async (e) => {
+    const processCheckout = async (e) => {
         e.preventDefault();
 
         if (!user) {
-            alert("Please login to place an order.");
+            alert("Please login first.");
             navigate('/login');
             return;
         }
 
-        // Check required fields
-        if (!formData.first_name || !formData.email || !formData.phone || !formData.address || !formData.city) {
-            alert("Please fill in all required fields.");
+        // Basic validation
+        if (!formData.first_name || !formData.last_name || !formData.email || !formData.phone || !formData.address || !formData.city) {
+            setStatus({ state: 'error', message: 'All billing fields are strictly required by PayHere.' });
             return;
         }
 
-        const confirmPay = window.confirm(`Proceed to pay Rs. ${totalAmount} via PayHere?`);
-        if (!confirmPay) return;
-
-        if (!gpsLocation) {
-            const proceedWithoutLoc = window.confirm("⚠️ Location not detected yet! The driver won't be able to find you on the map. \n\nProceed anyway?");
-            if (!proceedWithoutLoc) return;
-        }
-
         try {
-            console.log("Submitting Order Payload:", {
-                buyerId: user.id,
-                deliveryAddress: `${formData.address}, ${formData.city}, Sri Lanka`,
-                deliveryLatitude: gpsLocation?.lat,
-                deliveryLongitude: gpsLocation?.lng
-            });
+            setStatus({ state: 'loading', message: 'Creating your order securely...' });
 
             const payload = {
                 buyerId: user.id,
                 deliveryAddress: `${formData.address}, ${formData.city}, Sri Lanka`,
-                deliveryLatitude: gpsLocation?.lat, // Send GPS Lat
-                deliveryLongitude: gpsLocation?.lng, // Send GPS Lng
+                deliveryLatitude: gpsLocation?.lat,
+                deliveryLongitude: gpsLocation?.lng,
                 contactNumber: formData.phone,
                 items: cart.map(item => ({
                     productId: item.id,
@@ -76,213 +65,222 @@ const Checkout = () => {
                 }))
             };
 
-            const response = await axios.post('/api/orders/checkout', payload);
+            console.log("Sending Order Payload:", payload);
 
-            if (response.status === 200) {
-                // Instead of clearing cart immediately, we launch Payment.
-                // Note: Real-world app might optimize status to "PENDING_PAYMENT"
-                const createdOrders = response.data; // This is a List<Order>
-
-                if (createdOrders && createdOrders.length > 0) {
-                    const orderId = createdOrders[0].id;
-
-                    setPaymentOrder({
-                        orderId: orderId,
-                        amount: totalAmount, // Note: Backend re-calculates amount per order!
-                        items: cart.map(item => item.name).join(", "),
-                        customerDetails: formData
-                    });
-
-                    // Clear cart locally as order is created in DB (waiting for payment)
-                    clearCart();
+            // Step 1: Save to Database
+            let orderId, hashStr, merchantId, formattedAmountStr;
+            try {
+                const response = await axios.post('/api/orders/checkout', payload);
+                if (response.data && response.data.length > 0) {
+                    orderId = response.data[0].id;
                 } else {
-                    alert("Order created but no details returned. Please check profile.");
-                    navigate('/');
+                    throw new Error("InvalidCartItems");
                 }
+            } catch (backendError) {
+                console.error("Backend Order Error:", backendError.response?.data || backendError.message);
+                if (backendError.message === "InvalidCartItems") {
+                    setStatus({ state: 'error', message: 'The products in your cart have been deleted from the database! Please Clear Cart and add fresh products.' });
+                } else {
+                    setStatus({ state: 'error', message: 'Failed to save order in database. Check console.' });
+                }
+                return;
             }
+
+            setStatus({ state: 'loading', message: 'Generating Secure Payment Hash...' });
+
+            // Step 2: Get Hash for PayHere
+            try {
+                const hashRes = await axios.get(`/api/payment/hash/${orderId}`);
+                hashStr = hashRes.data.hash;
+                merchantId = hashRes.data.merchant_id;
+                formattedAmountStr = hashRes.data.amount;
+            } catch (hashError) {
+                console.error("Backend Hash Error:", hashError.response?.data || hashError.message);
+                setStatus({ state: 'error', message: 'Failed to generate secure PayHere hash. Check Console.' });
+                return;
+            }
+
+            // Step 3: Trigger PayHere JS
+            const itemsNames = cart.map(item => item.name).join(", ");
+            
+            const paymentDetails = {
+                "sandbox": true,
+                "merchant_id": merchantId, 
+                "return_url": `${window.location.origin}/my-orders`,
+                "cancel_url": `${window.location.origin}/checkout`,
+                "notify_url": "http://localhost:8080/api/payment/notify",
+                "order_id": orderId,
+                "items": itemsNames.length > 0 ? itemsNames : "Agrolink Products",
+                "amount": formattedAmountStr || totalAmount.toString(),
+                "currency": "LKR",
+                "hash": hashStr,
+                "first_name": formData.first_name,
+                "last_name": formData.last_name,
+                "email": formData.email,
+                "phone": formData.phone,
+                "address": formData.address,
+                "city": formData.city,
+                "country": "Sri Lanka"
+            };
+
+            console.log("Launching PayHere with payload:", paymentDetails);
+
+            if (!window.payhere) {
+                setStatus({ state: 'error', message: 'PayHere script is missing!' });
+                return;
+            }
+
+            window.payhere.onCompleted = function onCompleted(returnedOrderId) {
+                console.log("PAYHERE SUCCESS:", returnedOrderId);
+                clearCart();
+                setStatus({ state: 'success', message: 'Payment Successful!' });
+                window.location.href = '/my-orders';
+            };
+
+            window.payhere.onDismissed = function onDismissed() {
+                console.log("PAYHERE DISMISSED BY USER OR VALIDATION.");
+                setStatus({ state: 'error', message: 'Payment gateway popup was closed or validation failed. Please check console logs.' });
+            };
+
+            window.payhere.onError = function onError(errorMsg) {
+                console.error("PAYHERE ERROR:", errorMsg);
+                setStatus({ state: 'error', message: `PayHere Error: ${errorMsg}` });
+            };
+
+            setStatus({ state: 'idle', message: '' }); 
+            window.payhere.startPayment(paymentDetails);
+
         } catch (error) {
-            console.error("Order placement failed", error);
-            alert("Failed to place order. Please try again.");
+            console.error("Unexpected checkout crash:", error);
+            setStatus({ state: 'error', message: 'Something went wrong processing your checkout.' });
         }
     };
 
-    React.useEffect(() => {
-        if (cart.length === 0 && !paymentOrder) { // Only redirect if not paying
-            navigate('/cart');
-        }
-    }, [cart, navigate, paymentOrder]);
-
-    if (cart.length === 0 && !paymentOrder) {
-        return null;
-    }
+    if (cart.length === 0 && status.state !== 'success') return null;
 
     return (
-        <div className="min-h-screen bg-gray-50 py-20 px-4">
-            <div className="container mx-auto max-w-4xl">
-                <button
-                    onClick={() => navigate('/cart')}
-                    className="mb-8 flex items-center text-gray-500 hover:text-[#1a7935] transition-colors"
-                >
-                    <ArrowLeft className="h-4 w-4 mr-2" /> Back to Cart
-                </button>
+        <div className="min-h-screen bg-white">
+            <div className="bg-gray-50 border-b border-gray-200 pt-24 pb-12">
+                <div className="container mx-auto px-4 max-w-5xl">
+                    <button onClick={() => navigate('/cart')} className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors mb-6">
+                        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Cart
+                    </button>
+                    <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
+                        <ShoppingBag className="w-8 h-8 text-[#1a7935]" />
+                        Secure Checkout
+                    </h1>
+                    <p className="text-gray-500 mt-2 text-lg">Complete your order with PayHere.</p>
+                </div>
+            </div>
 
-                <h1 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
-                    <CreditCard className="h-8 w-8 text-[#1a7935]" />
-                    Checkout
-                </h1>
+            <div className="container mx-auto px-4 max-w-5xl py-12">
+                
+                {status.state === 'error' && (
+                    <div className="mb-8 bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-start gap-3 shadow-sm animate-in fade-in slide-in-from-top-4">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <h4 className="font-bold">Checkout Error</h4>
+                            <p className="text-sm mt-1">{status.message}</p>
+                            <p className="text-xs mt-2 font-mono bg-red-100 p-2 rounded text-red-800">Please check the right-click Browser Inspect &rarr; Console for exactly what went wrong.</p>
+                        </div>
+                    </div>
+                )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Billing Details */}
-                    <div className="lg:col-span-2 bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                        <h3 className="text-xl font-bold text-gray-800 mb-6 flex justify-between items-center">
-                            Billing Details
-                            {gpsLocation ? (
-                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
-                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                    Location Detected
-                                </span>
-                            ) : gpsLoading ? (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full flex items-center gap-1">
-                                    <svg className="animate-spin h-3 w-3 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Detecting...
-                                </span>
-                            ) : (
-                                <div className="flex flex-col items-end">
-                                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full flex items-center gap-1 mb-1">
-                                        ⚠️ {gpsError || "Location Failed"}
-                                    </span>
-                                    <button
-                                        onClick={() => window.location.reload()}
-                                        className="text-[10px] text-blue-600 underline hover:text-blue-800"
-                                    >
-                                        Retry
-                                    </button>
-                                </div>
-                            )}
-                        </h3>
-                        <form onSubmit={handlePayment} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col lg:flex-row gap-12">
+                    <div className="flex-1">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-6 border-b pb-4">Billing Information</h2>
+                        
+                        <form id="checkout-form" onSubmit={processCheckout} className="space-y-5">
+                            <div className="grid grid-cols-2 gap-5">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                                    <input
-                                        type="text" name="first_name" required value={formData.first_name} onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-[#1a7935] focus:border-[#1a7935]"
-                                    />
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">First Name *</label>
+                                    <input required type="text" name="first_name" value={formData.first_name} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1a7935] focus:border-transparent transition-all" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                                    <input
-                                        type="text" name="last_name" required value={formData.last_name} onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-[#1a7935] focus:border-[#1a7935]"
-                                    />
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Last Name *</label>
+                                    <input required type="text" name="last_name" value={formData.last_name} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1a7935] focus:border-transparent transition-all" />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                <input
-                                    type="email" name="email" required value={formData.email} onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-[#1a7935] focus:border-[#1a7935]"
-                                />
+                                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email Address *</label>
+                                <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1a7935] focus:border-transparent transition-all" />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                                <input
-                                    type="tel" name="phone" required value={formData.phone} onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-[#1a7935] focus:border-[#1a7935]"
-                                />
+                                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Phone Number *</label>
+                                <input required type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1a7935] focus:border-transparent transition-all" />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                                <input
-                                    type="text" name="address" required value={formData.address} onChange={handleChange}
-                                    placeholder="Street address"
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-[#1a7935] focus:border-[#1a7935]"
-                                />
+                                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Street Address *</label>
+                                <input required type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1a7935] focus:border-transparent transition-all" />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-5">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                                    <input
-                                        type="text" name="city" required value={formData.city} onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-[#1a7935] focus:border-[#1a7935]"
-                                    />
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">City *</label>
+                                    <input required type="text" name="city" value={formData.city} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1a7935] focus:border-transparent transition-all" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                                    <input
-                                        type="text" name="country" value="Sri Lanka" readOnly
-                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-                                    />
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Country</label>
+                                    <input readOnly type="text" value="Sri Lanka" className="w-full bg-gray-100 border border-gray-200 text-gray-500 rounded-lg px-4 py-3 cursor-not-allowed" />
                                 </div>
                             </div>
-
-                            <button
-                                type="submit"
-                                className="hidden"
-                                id="pay-submit-btn"
-                            >
-                            </button>
                         </form>
                     </div>
 
-                    {/* Order Summary */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 sticky top-24">
-                            <h3 className="text-xl font-bold text-gray-800 mb-4">Your Order</h3>
-                            <div className="max-h-60 overflow-y-auto mb-4 space-y-3 pr-2 scrollbar-thin">
+                    <div className="lg:w-[400px]">
+                        <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200 sticky top-24 shadow-sm">
+                            <h3 className="text-xl font-bold text-gray-900 mb-4 border-b pb-4">Order Summary</h3>
+                            
+                            <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-2">
                                 {cart.map(item => (
-                                    <div key={item.id} className="flex justify-between text-sm">
-                                        <span className="text-gray-600">{item.name} x {item.quantity}</span>
-                                        <span className="font-medium text-gray-900">Rs. {item.price * item.quantity}</span>
+                                    <div key={item.id} className="flex justify-between items-start text-sm">
+                                        <div className="pr-4">
+                                            <p className="font-medium text-gray-900">{item.name}</p>
+                                            <p className="text-gray-500">Qty: {item.quantity}</p>
+                                        </div>
+                                        <p className="font-bold text-gray-900 whitespace-nowrap">Rs. {item.price * item.quantity}</p>
                                     </div>
                                 ))}
                             </div>
 
-                            <div className="border-t border-gray-100 pt-3 space-y-2 mb-6">
+                            <div className="pt-4 border-t border-gray-200 space-y-3 mb-8">
                                 <div className="flex justify-between text-gray-600">
                                     <span>Subtotal</span>
                                     <span>Rs. {totalAmount}</span>
                                 </div>
                                 <div className="flex justify-between text-gray-600">
                                     <span>Delivery</span>
-                                    <span className="text-[#1a7935] font-bold">Free</span>
+                                    <span className="text-green-600 font-medium">Calculated Later</span>
                                 </div>
-                                <div className="border-t border-gray-100 pt-3 flex justify-between text-xl font-bold text-[#1a7935]">
+                                <div className="flex justify-between font-bold text-2xl text-gray-900 pt-2 border-t border-gray-200">
                                     <span>Total</span>
                                     <span>Rs. {totalAmount}</span>
                                 </div>
                             </div>
 
                             <button
-                                onClick={() => document.getElementById('pay-submit-btn').click()}
-                                className="w-full bg-[#1a7935] text-white py-4 rounded-xl font-bold hover:bg-[#145d29] transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-900/10"
+                                type="submit"
+                                form="checkout-form"
+                                disabled={status.state === 'loading' || status.state === 'success'}
+                                className="w-full h-14 bg-[#1a7935] hover:bg-[#145d29] disabled:bg-[#1a7935]/70 text-white rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-[0_4px_14px_rgba(26,121,53,0.3)] disabled:shadow-none"
                             >
-                                <CreditCard className="h-5 w-5" />
-                                Pay with PayHere
+                                {status.state === 'loading' ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin text-white/70" />
+                                        <span>{status.message}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        Pay Rs. {totalAmount} with PayHere
+                                    </>
+                                )}
                             </button>
-
-                            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-400">
-                                <ShieldCheck className="h-3 w-3" />
-                                Secure Payment Gateway
-                            </div>
                         </div>
                     </div>
                 </div>
-
-                {/* Render PayHere Checkout Overlay Component when payment is initiated */}
-                {paymentOrder && (
-                    <PayHereCheckout
-                        {...paymentOrder}
-                        onDismiss={() => setPaymentOrder(null)}
-                    />
-                )}
             </div>
         </div>
     );

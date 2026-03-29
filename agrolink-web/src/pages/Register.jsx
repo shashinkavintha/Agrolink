@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import axios from 'axios';
-import { User, Truck, Sprout, ShoppingBag, Loader2 } from 'lucide-react';
+import { User, Truck, Sprout, ShoppingBag, Loader2, Store } from 'lucide-react';
 
 const roles = [
     { id: 'farmer', label: 'Farmer', icon: Sprout, description: 'Sell your harvest directly to buyers.' },
     { id: 'buyer', label: 'Buyer', icon: ShoppingBag, description: 'Purchase fresh produce easily.' },
-    { id: 'driver', label: 'Driver', icon: Truck, description: 'Deliver goods and earn money.' }
+    { id: 'supplier', label: 'Supplier', icon: Store, description: 'Supply essential items for Farmers.' }
 ];
 
 const buyerTypes = [
@@ -158,7 +158,7 @@ export default function Register() {
                         {/* Role Selection */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Select Account Type</label>
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {roles.map((role) => (
                                     <div
                                         key={role.id}

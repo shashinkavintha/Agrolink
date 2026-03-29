@@ -70,9 +70,12 @@ export default function NotificationDropdown({ userId }) {
             navigate('/farmer/requests'); // Assuming this is for farmer for now
         } else if (notification.type === 'ORDER_UPDATE') {
             navigate('/my-orders');
+        } else if (notification.type === 'CHAT_MESSAGE') {
+            navigate(`/chat/${notification.relatedId}`);
+        } else if (notification.type === 'CUSTOM_OFFER') {
+            navigate('/inbox'); // Redirect to inbox as relatedId is offerId
         } else {
-            // Default navigation or handled by type
-            // e.g., ORDER_UPDATE -> /my-orders
+            // Default navigation handle
         }
     };
 

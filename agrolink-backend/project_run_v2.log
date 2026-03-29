@@ -1,0 +1,119 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -------------------< com.agrolink:agrolink-backend >--------------------
+[INFO] Building agrolink-backend 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:4.0.2:run (default-cli) > test-compile @ agrolink-backend >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ agrolink-backend ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] Copying 0 resource from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ agrolink-backend ---
+[INFO] Recompiling the module because of added or removed source files.
+[INFO] Compiling 64 source files with javac [debug parameters release 21] to target/classes
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[118,1] illegal start of type
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[118,13] > expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[119,5] illegal start of type
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[149,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[149,3] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[149,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[149,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[150,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[156,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[156,4] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[156,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[156,19] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[156,49] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[25,1] illegal start of type
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[25,13] > expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[26,5] illegal start of type
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[34,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[34,3] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[34,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[34,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[35,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[43,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[43,4] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[43,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[43,19] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[43,49] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[77,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[77,3] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[77,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[79,9] > or ',' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[79,17] '.class' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[90,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[90,3] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[90,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[90,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[91,9] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[105,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[105,4] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[105,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[105,19] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[105,49] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[116,5] illegal start of expression
+[INFO] 42 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.642 s
+[INFO] Finished at: 2026-03-28T10:28:25+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.1:compile (default-compile) on project agrolink-backend: Compilation failure: Compilation failure: 
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[118,1] illegal start of type
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[118,13] > expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[119,5] illegal start of type
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[149,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[149,3] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[149,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[149,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[150,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[156,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[156,4] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[156,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[156,19] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/model/Review.java:[156,49] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[25,1] illegal start of type
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[25,13] > expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[26,5] illegal start of type
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[34,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[34,3] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[34,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[34,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[35,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[43,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[43,4] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[43,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[43,19] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[43,49] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[77,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[77,3] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[77,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[79,9] > or ',' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[79,17] '.class' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[90,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[90,3] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[90,5] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[90,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[91,9] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[105,1] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[105,4] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[105,7] illegal start of expression
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[105,19] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[105,49] ';' expected
+[ERROR] /Users/shashinkavintha/Documents/My/Agrolink/agrolink-backend/src/main/java/com/agrolink/backend/service/ReviewService.java:[116,5] illegal start of expression
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

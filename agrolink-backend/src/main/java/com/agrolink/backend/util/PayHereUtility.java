@@ -3,6 +3,7 @@ package com.agrolink.backend.util;
 import java.security.MessageDigest;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.Base64;
 import java.util.Locale;
 
 public class PayHereUtility {
@@ -14,13 +15,23 @@ public class PayHereUtility {
         String formattedAmount = df.format(amount);
 
         String secretHash = getMd5(merchantSecret).toUpperCase();
+        String decodedSecret = merchantSecret; // raw secret for log
 
         String hashString = merchantId + orderId + formattedAmount + currency + secretHash;
 
-        System.err.println("DEBUG PayHere Hash Input: " + hashString);
-        System.err.println("DEBUG PayHere Secret Hash: " + secretHash);
+        System.err.println("===== PAYHERE DEBUG LOG =====");
+        System.err.println("Merchant ID: " + merchantId);
+        System.err.println("Order ID: " + orderId);
+        System.err.println("Amount: " + formattedAmount);
+        System.err.println("Currency: " + currency);
+        System.err.println("Decoded Secret: " + decodedSecret);
+        System.err.println("Secret Hash (MD5 of decoded): " + secretHash);
+        System.err.println("Hash Input String: " + hashString);
+        String finalHash = getMd5(hashString).toUpperCase();
+        System.err.println("Final Hash: " + finalHash);
+        System.err.println("=============================");
 
-        return getMd5(hashString).toUpperCase();
+        return finalHash;
     }
 
     private static String getMd5(String input) {

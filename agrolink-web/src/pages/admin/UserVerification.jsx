@@ -101,7 +101,6 @@ export default function UserVerification() {
     };
 
     const handleApprove = async (id) => {
-        if (!window.confirm("Are you sure you want to approve this user?")) return;
         try {
             await axios.put(`/api/profiles/${id}/approve`);
             setUsers(users.filter(u => u.id !== id));
