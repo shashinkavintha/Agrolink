@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
-import { Truck, Loader2, CheckCircle2, UserPlus } from 'lucide-react';
+import { Truck, Loader2, CheckCircle2, UserPlus, AlertCircle } from 'lucide-react';
+import { validationRules } from '../../lib/validation';
 
 const AdminDriverRegistration = () => {
     const [formData, setFormData] = useState({
@@ -25,6 +26,12 @@ const AdminDriverRegistration = () => {
         e.preventDefault();
         setLoading(true);
         setStatus({ type: '', message: '' });
+        // Phone Number Validation
+        if (formData.phone && !validationRules.mobile.test(formData.phone)) {
+            setStatus({ type: 'error', message: 'Invalid phone number format. Please use a valid Sri Lankan mobile number (e.g., 0771234567).' });
+            setLoading(false);
+            return;
+        }
 
         try {
             // Create a temporary Supabase client that doesn't persist the session
@@ -54,6 +61,7 @@ const AdminDriverRegistration = () => {
                     id: authData.user.id,
                     email: formData.email,
                     fullName: formData.fullName,
+                    phoneNumber: formData.phone,
                     role: 'driver',
                     vehicleType: formData.vehicleType,
                     vehicleModel: formData.vehicleModel,
@@ -137,9 +145,19 @@ const AdminDriverRegistration = () => {
                             name="phone"
                             value={formData.phone}
                             onChange={handleInputChange}
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a7935] focus:border-transparent outline-none transition-all"
+                            className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-[#1a7935] focus:border-transparent outline-none transition-all ${
+                                formData.phone && !validationRules.mobile.test(formData.phone) 
+                                ? 'border-red-500 focus:ring-red-500' 
+                                : 'border-gray-200'
+                            }`}
                             placeholder="e.g. 0771234567"
                         />
+                        {formData.phone && !validationRules.mobile.test(formData.phone) && (
+                            <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                Please enter a valid Sri Lankan mobile number.
+                            </p>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Login Email *</label>

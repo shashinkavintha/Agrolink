@@ -58,6 +58,27 @@ public class Profile {
     @Column(name = "vehicle_plate_photo_url")
     private String vehiclePlatePhotoUrl;
 
+    @Column(name = "nic", length = 12)
+    private String nic;
+
+    @Column(name = "phone_number", length = 15)
+    private String phoneNumber;
+
+    @Column(name = "address_line_1")
+    private String addressLine1;
+
+    @Column(name = "address_line_2")
+    private String addressLine2;
+
+    @Column(name = "city")
+    private String city;
+
+    @Column(name = "province")
+    private String province;
+
+    @Column(name = "zip_code", length = 5)
+    private String zipCode;
+
     @Column(name = "latitude")
     private Double latitude;
 
@@ -112,6 +133,12 @@ public class Profile {
 
     @Column(name = "total_earnings")
     private java.math.BigDecimal totalEarnings = java.math.BigDecimal.ZERO;
+
+    @Column(name = "pending_balance", precision = 12, scale = 2)
+    private java.math.BigDecimal pendingBalance = java.math.BigDecimal.ZERO;
+
+    @Column(name = "available_balance", precision = 12, scale = 2)
+    private java.math.BigDecimal availableBalance = java.math.BigDecimal.ZERO;
 
     @Column(name = "is_top_seller")
     private Boolean isTopSeller = false;
@@ -228,6 +255,62 @@ public class Profile {
         this.vehiclePlateNumber = vehiclePlateNumber;
     }
 
+    public String getNic() {
+        return nic;
+    }
+
+    public void setNic(String nic) {
+        this.nic = nic;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getAddressLine1() {
+        return addressLine1;
+    }
+
+    public void setAddressLine1(String addressLine1) {
+        this.addressLine1 = addressLine1;
+    }
+
+    public String getAddressLine2() {
+        return addressLine2;
+    }
+
+    public void setAddressLine2(String addressLine2) {
+        this.addressLine2 = addressLine2;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getProvince() {
+        return province;
+    }
+
+    public void setProvince(String province) {
+        this.province = province;
+    }
+
+    public String getZipCode() {
+        return zipCode;
+    }
+
+    public void setZipCode(String zipCode) {
+        this.zipCode = zipCode;
+    }
+
     public Double getLatitude() {
         return latitude;
     }
@@ -330,5 +413,21 @@ public class Profile {
 
     public void setPreFulfillmentCancellationRate(Double preFulfillmentCancellationRate) {
         this.preFulfillmentCancellationRate = preFulfillmentCancellationRate;
+    }
+
+    public java.math.BigDecimal getPendingBalance() {
+        return pendingBalance;
+    }
+
+    public void setPendingBalance(java.math.BigDecimal pendingBalance) {
+        this.pendingBalance = pendingBalance;
+    }
+
+    public java.math.BigDecimal getAvailableBalance() {
+        return availableBalance;
+    }
+
+    public void setAvailableBalance(java.math.BigDecimal availableBalance) {
+        this.availableBalance = availableBalance;
     }
 }

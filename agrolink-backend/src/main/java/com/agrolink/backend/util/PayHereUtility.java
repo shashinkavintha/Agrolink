@@ -3,7 +3,6 @@ package com.agrolink.backend.util;
 import java.security.MessageDigest;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.util.Base64;
 import java.util.Locale;
 
 public class PayHereUtility {
@@ -34,7 +33,7 @@ public class PayHereUtility {
         return finalHash;
     }
 
-    private static String getMd5(String input) {
+    public static String getMd5(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] messageDigest = md.digest(input.getBytes());

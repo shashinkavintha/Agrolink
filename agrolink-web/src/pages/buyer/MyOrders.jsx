@@ -28,6 +28,33 @@ const MyOrders = () => {
         }
     }, [user]);
 
+    // Intercept PayHere Mock Webhook Redirection
+    useEffect(() => {
+        const queryParams = new URLSearchParams(window.location.search);
+        const successOrderId = queryParams.get('payment_success_order');
+        if (successOrderId) {
+            console.log("Interceptor: Recovering Mock Webhook for Order: " + successOrderId);
+            axios.post(`/api/payment/notify`, null, {
+                params: {
+                    merchant_id: "sandbox",
+                    order_id: successOrderId,
+                    status_code: "2",
+                    md5sig: "mock"
+                }
+            }).then(() => {
+                console.log("Escrow HELD successfully via redirection interceptor.");
+                // Reload orders to reflect accepted status
+                if (user) {
+                    axios.get(`/api/orders?buyerId=${user.id}`).then(res => setOrders(Array.isArray(res.data) ? res.data : []));
+                }
+            }).catch(e => console.error("Interceptor webhook failed:", e))
+            .finally(() => {
+                // Clean URL so it doesn't fire again on manual refresh
+                window.history.replaceState({}, document.title, window.location.pathname);
+            });
+        }
+    }, [user]);
+
     const getStatusColor = (status) => {
         switch (status) {
             case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';

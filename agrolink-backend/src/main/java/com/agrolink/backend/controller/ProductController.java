@@ -37,6 +37,11 @@ public class ProductController {
         return productService.getApprovedProducts();
     }
 
+    @GetMapping("/all")
+    public List<Product> getAllProductsList() {
+        return productService.getAllProducts();
+    }
+
     @GetMapping
     public List<Product> getAllProducts(@RequestParam(required = false) String categoryType) {
         if (categoryType != null) {

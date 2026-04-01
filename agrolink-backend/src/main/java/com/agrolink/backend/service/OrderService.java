@@ -159,35 +159,30 @@ public class OrderService {
         regularProducts.forEach(p -> productMap.put(p.getId(), p));
         shopProducts.forEach(p -> productMap.put(p.getId(), p));
 
-        System.out.println("Found " + regularProducts.size() + " regular products and " + shopProducts.size() + " shop products");
-
         // 2. Group items by Farmer ID / Admin ID
         Map<UUID, List<com.agrolink.backend.dto.CheckoutRequest.CheckoutItem>> itemsByFarmer = new java.util.HashMap<>();
 
         for (com.agrolink.backend.dto.CheckoutRequest.CheckoutItem item : request.getItems()) {
+            // Validation: Quantity must be strictly positive
+            if (item.getQuantity() <= 0) {
+                throw new RuntimeException("Invalid quantity for product ID: " + item.getProductId());
+            }
+
             Object productObj = productMap.get(item.getProductId());
-            
+            if (productObj == null) {
+                throw new RuntimeException("Product not found: " + item.getProductId());
+            }
+
+            // Grouping logic
+            UUID sellerId = null;
             if (productObj instanceof com.agrolink.backend.model.Product) {
-                com.agrolink.backend.model.Product product = (com.agrolink.backend.model.Product) productObj;
-                UUID fId = product.getFarmerId();
-                if (fId != null) {
-                    itemsByFarmer.computeIfAbsent(fId, k -> new java.util.ArrayList<>()).add(item);
-                } else {
-                    System.err.println("⚠️ Warning: Product " + product.getId() + " has no farmerId!");
-                }
+                sellerId = ((com.agrolink.backend.model.Product) productObj).getFarmerId();
             } else if (productObj instanceof com.agrolink.backend.model.FarmerShopProduct) {
-                com.agrolink.backend.model.FarmerShopProduct product = (com.agrolink.backend.model.FarmerShopProduct) productObj;
-                UUID adminId = product.getAdminId();
-                if (adminId != null) {
-                    itemsByFarmer.computeIfAbsent(adminId, k -> new java.util.ArrayList<>()).add(item);
-                    System.out.println("   Grouped FarmerShopProduct " + product.getId() + " under admin " + adminId);
-                } else {
-                    System.err.println("⚠️ Warning: FarmerShopProduct " + product.getId() + " has no adminId!");
-                }
-            } else if (productObj != null) {
-                System.err.println("⚠️ Unknown product type for ID: " + item.getProductId());
-            } else {
-                System.err.println("❌ Product not found: " + item.getProductId());
+                sellerId = ((com.agrolink.backend.model.FarmerShopProduct) productObj).getAdminId();
+            }
+
+            if (sellerId != null) {
+                itemsByFarmer.computeIfAbsent(sellerId, k -> new java.util.ArrayList<>()).add(item);
             }
         }
 
@@ -195,40 +190,33 @@ public class OrderService {
         com.agrolink.backend.model.Profile buyer = profileRepository.findById(request.getBuyerId())
                 .orElseThrow(() -> new RuntimeException("Buyer not found"));
 
-        for (Map.Entry<UUID, List<com.agrolink.backend.dto.CheckoutRequest.CheckoutItem>> entry : itemsByFarmer
-                .entrySet()) {
-            UUID sellerId = entry.getKey(); // Could be farmerId or adminId
+        for (Map.Entry<UUID, List<com.agrolink.backend.dto.CheckoutRequest.CheckoutItem>> entry : itemsByFarmer.entrySet()) {
+            UUID sellerId = entry.getKey();
             List<com.agrolink.backend.dto.CheckoutRequest.CheckoutItem> sellerItems = entry.getValue();
-
-            System.out.println("🚜 Creating order for sellerId: " + sellerId);
 
             Order order = new Order();
             order.setBuyer(buyer);
-            order.setContactNumber(request.getContactNumber()); // Save contact number
+            order.setContactNumber(request.getContactNumber());
+            order.setCity(request.getCity());
+            order.setProvince(request.getProvince());
+            order.setZipCode(request.getZipCode());
+            order.setPaymentMethod(request.getPaymentMethod());
+            order.setDeliveryAddress(request.getDeliveryAddress());
+            order.setDeliveryLatitude(request.getDeliveryLatitude());
+            order.setDeliveryLongitude(request.getDeliveryLongitude());
+            order.setStatus(OrderStatus.pending);
 
             com.agrolink.backend.model.Profile seller = profileRepository.findById(sellerId).orElse(null);
-
-            if (seller == null) {
-                // For farmer shop products, the seller might be an admin without a profile
-                // Try to create a minimal profile or skip location sync
-                System.err.println("⚠️ Warning: Seller profile " + sellerId + " not found in DB! Using defaults for order.");
-                // Continue without seller profile - it's optional for admin products
-            } else {
-                order.setFarmer(seller); // Set as Farmer/Seller
-
+            if (seller != null) {
+                order.setFarmer(seller);
                 if (seller.getLatitude() != null && seller.getLongitude() != null) {
                     order.setPickupLatitude(seller.getLatitude());
                     order.setPickupLongitude(seller.getLongitude());
                 }
             }
 
-            order.setDeliveryAddress(request.getDeliveryAddress());
-            order.setDeliveryLatitude(request.getDeliveryLatitude());
-            order.setDeliveryLongitude(request.getDeliveryLongitude());
-            order.setStatus(OrderStatus.pending);
-
-            // Calculate Total & Build Items
-            java.math.BigDecimal orderTotal = java.math.BigDecimal.ZERO;
+            // Calculate Subtotal &build Items
+            java.math.BigDecimal subtotal = java.math.BigDecimal.ZERO;
             List<com.agrolink.backend.model.OrderItem> orderItems = new java.util.ArrayList<>();
 
             for (com.agrolink.backend.dto.CheckoutRequest.CheckoutItem itemDTO : sellerItems) {
@@ -239,33 +227,44 @@ public class OrderService {
                 
                 if (productObj instanceof com.agrolink.backend.model.Product) {
                     com.agrolink.backend.model.Product product = (com.agrolink.backend.model.Product) productObj;
+                    
+                    // --- ATOMIC STOCK DEDUCTION (Section 6.1 DSR) ---
+                    int updatedRows = productRepository.deductStock(product.getId(), java.math.BigDecimal.valueOf(itemDTO.getQuantity()));
+                    if (updatedRows == 0) {
+                        throw new RuntimeException("Insufficient stock for product: " + product.getName());
+                    }
+                    // ------------------------------------------------
+
                     orderItem.setProduct(product);
                     itemPrice = product.getPrice();
                 } else if (productObj instanceof com.agrolink.backend.model.FarmerShopProduct) {
                     com.agrolink.backend.model.FarmerShopProduct shopProduct = (com.agrolink.backend.model.FarmerShopProduct) productObj;
-                    // For farmer shop products, store the name as custom item name and leave product_id null
+                    // Note: FarmerShopProduct management is handled by Admin, assuming infinite or manual stock for this POC
                     orderItem.setCustomItemName(shopProduct.getName());
                     itemPrice = shopProduct.getPrice();
-                    System.out.println("   Added FarmerShopProduct to order: " + shopProduct.getName() + " @ " + itemPrice);
                 }
                 
                 orderItem.setQuantity(java.math.BigDecimal.valueOf(itemDTO.getQuantity()));
                 orderItem.setPriceAtTime(itemPrice);
-                orderItem.setOrder(order); // Link back
-
+                orderItem.setOrder(order);
                 orderItems.add(orderItem);
 
-                java.math.BigDecimal itemTotal = itemPrice
-                        .multiply(java.math.BigDecimal.valueOf(itemDTO.getQuantity()));
-                orderTotal = orderTotal.add(itemTotal);
+                subtotal = subtotal.add(itemPrice.multiply(java.math.BigDecimal.valueOf(itemDTO.getQuantity())));
             }
 
+            // --- SRI LANKAN TAXATION (18% VAT - Section 9.1 DSR) ---
+            java.math.BigDecimal vatAmount = subtotal.multiply(new java.math.BigDecimal("0.18"));
+            java.math.BigDecimal totalAmount = subtotal.add(vatAmount);
+            // ------------------------------------------------------
+
             order.setItems(orderItems);
-            order.setTotalAmount(orderTotal);
+            order.setSubtotal(subtotal);
+            order.setVatAmount(vatAmount);
+            order.setTotalAmount(totalAmount);
 
             Order savedOrder = orderRepository.save(order);
             createdOrders.add(savedOrder);
-            System.out.println("✅ Order created: " + savedOrder.getId() + " for seller: " + sellerId);
+            System.out.println("✅ Order created: " + savedOrder.getId() + " | Subtotal: " + subtotal + " | VAT: " + vatAmount + " | Total: " + totalAmount);
         }
 
         return createdOrders;

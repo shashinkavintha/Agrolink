@@ -18,6 +18,31 @@ const cropTypes = {
     grain: ['Rice', 'Corn', 'Mung Bean']
 };
 
+// --- CONTENT CLEANSING (Section 5.1 DSR) ---
+const checkMagicNumbers = (file) => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = (e) => {
+            const arr = (new Uint8Array(e.target.result)).subarray(0, 12);
+            let header = "";
+            for (let i = 0; i < arr.length; i++) {
+                header += arr[i].toString(16).padStart(2, '0');
+            }
+            // Magic Number Check:
+            // JPEG: ffd8ffe0, ffd8ffe1
+            // PNG: 89504e47
+            // WebP (RIFF....WEBP): 52494646....57454250
+            const isJpeg = header.startsWith('ffd8');
+            const isPng = header.startsWith('89504e47');
+            const isWebP = header.startsWith('52494646') && header.includes('57454250');
+            
+            resolve(isJpeg || isPng || isWebP);
+        };
+        reader.readAsArrayBuffer(file.slice(0, 12));
+    });
+};
+// -------------------------------------------
+
 export default function AddProduct() {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
@@ -39,9 +64,23 @@ export default function AddProduct() {
         fileInputRef.current.click();
     };
 
-    const handleImageChange = (e) => {
+    const handleImageChange = async (e) => {
         const file = e.target.files[0];
         if (file) {
+            // Validate Size (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert("File size exceeds 5MB limit.");
+                return;
+            }
+
+            // --- SEVERE CONTENT VALIDATION (Section 5.1 DSR) ---
+            const isValidHeader = await checkMagicNumbers(file);
+            if (!isValidHeader) {
+                alert("STRICT SECURITY VIOLATION: Malformed file detected. Only legitimate WebP, PNG, or JPG images are allowed.");
+                return;
+            }
+            // ----------------------------------------------------
+
             setImageFile(file);
             setImagePreview(URL.createObjectURL(file));
         }

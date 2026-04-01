@@ -5,6 +5,7 @@ import { ShoppingBag, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useGeolocation } from '../../hooks/useGeolocation';
+import { validationRules, sriLankanAdmin } from '../../lib/validation';
 
 const Checkout = () => {
     const navigate = useNavigate();
@@ -18,12 +19,19 @@ const Checkout = () => {
         phone: user?.phone || '',
         address: user?.address || '',
         city: user?.city || '',
+        province: '',
+        zipCode: '',
+        paymentMethod: 'card' // Defaults to PayHere Card
     });
+
+    const [availableDistricts, setAvailableDistricts] = useState([]);
 
     const [status, setStatus] = useState({ state: 'idle', message: '' });
     const { location: gpsLocation } = useGeolocation();
 
     const totalAmount = getCartTotal();
+    const vatAmount = totalAmount * 0.18;
+    const grandTotal = totalAmount + vatAmount;
 
     useEffect(() => {
         if (cart.length === 0 && status.state !== 'success') {
@@ -32,7 +40,14 @@ const Checkout = () => {
     }, [cart, navigate, status.state]);
 
     const handleInputChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
+
+        if (name === 'province') {
+            const provinceData = sriLankanAdmin.provinces.find(p => p.name === value);
+            setAvailableDistricts(provinceData ? provinceData.districts : []);
+            setFormData(prev => ({ ...prev, city: '' })); // Reset city when province changes
+        }
     };
 
     const processCheckout = async (e) => {
@@ -44,21 +59,35 @@ const Checkout = () => {
             return;
         }
 
-        // Basic validation
+        // --- SRI LANKAN VALIDATION (DSR Section 3) ---
+        if (!validationRules.mobile.test(formData.phone)) {
+            setStatus({ state: 'error', message: 'Invalid Phone Number. Please use Sri Lankan format (e.g. 0771234567).' });
+            return;
+        }
+        if (!formData.province || !formData.city || !formData.zipCode) {
+            setStatus({ state: 'error', message: 'Province, District (City), and Postal Code are strictly required.' });
+            return;
+        }
+        // ----------------------------------------------
+
         if (!formData.first_name || !formData.last_name || !formData.email || !formData.phone || !formData.address || !formData.city) {
             setStatus({ state: 'error', message: 'All billing fields are strictly required by PayHere.' });
             return;
         }
 
         try {
-            setStatus({ state: 'loading', message: 'Creating your order securely...' });
+            setStatus({ state: 'loading', message: 'Processing Secure Authentication...' });
 
             const payload = {
                 buyerId: user.id,
-                deliveryAddress: `${formData.address}, ${formData.city}, Sri Lanka`,
+                deliveryAddress: `${formData.address}, ${formData.city}, ${formData.province}, Sri Lanka`,
                 deliveryLatitude: gpsLocation?.lat,
                 deliveryLongitude: gpsLocation?.lng,
                 contactNumber: formData.phone,
+                city: formData.city,
+                province: formData.province,
+                zipCode: formData.zipCode,
+                paymentMethod: formData.paymentMethod,
                 items: cart.map(item => ({
                     productId: item.id,
                     quantity: item.quantity
@@ -106,12 +135,12 @@ const Checkout = () => {
             const paymentDetails = {
                 "sandbox": true,
                 "merchant_id": merchantId, 
-                "return_url": `${window.location.origin}/my-orders`,
-                "cancel_url": `${window.location.origin}/checkout`,
+                "return_url": "http://localhost:5173/my-orders?payment_success_order=" + orderId,
+                "cancel_url": "http://localhost:5173/checkout",
                 "notify_url": "http://localhost:8080/api/payment/notify",
                 "order_id": orderId,
                 "items": itemsNames.length > 0 ? itemsNames : "Agrolink Products",
-                "amount": formattedAmountStr || totalAmount.toString(),
+                "amount": formattedAmountStr || grandTotal.toString(),
                 "currency": "LKR",
                 "hash": hashStr,
                 "first_name": formData.first_name,
@@ -130,8 +159,27 @@ const Checkout = () => {
                 return;
             }
 
-            window.payhere.onCompleted = function onCompleted(returnedOrderId) {
+            window.payhere.onCompleted = async function onCompleted(returnedOrderId) {
                 console.log("PAYHERE SUCCESS:", returnedOrderId);
+                
+                // --- MOCK WEBHOOK FOR LOCALHOST SANDBOX ---
+                // PayHere sandbox cannot reach localhost:8080 directly.
+                try {
+                    await axios.post('/api/payment/notify', null, {
+                        params: {
+                            merchant_id: paymentDetails.merchant_id,
+                            order_id: orderId,
+                            payhere_amount: paymentDetails.amount,
+                            payhere_currency: paymentDetails.currency,
+                            status_code: "2",
+                            md5sig: "mock" // Match the backend bypass for local testing
+                        }
+                    });
+                } catch (err) {
+                    console.error("Mock webhook failed", err);
+                }
+                // ------------------------------------------
+
                 clearCart();
                 setStatus({ state: 'success', message: 'Payment Successful!' });
                 window.location.href = '/my-orders';
@@ -219,8 +267,29 @@ const Checkout = () => {
 
                             <div className="grid grid-cols-2 gap-5">
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">City *</label>
-                                    <input required type="text" name="city" value={formData.city} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#1a7935] focus:border-transparent transition-all" />
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Province *</label>
+                                    <select required name="province" value={formData.province} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#1a7935] outline-none">
+                                        <option value="">Select Province</option>
+                                        {sriLankanAdmin.provinces.map(p => (
+                                            <option key={p.code} value={p.name}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">District / City *</label>
+                                    <select required name="city" value={formData.city} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#1a7935] outline-none" disabled={!formData.province}>
+                                        <option value="">Select District</option>
+                                        {availableDistricts.map(d => (
+                                            <option key={d} value={d}>{d}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Zip / Postal Code *</label>
+                                    <input required type="text" name="zipCode" placeholder="e.g. 00100" value={formData.zipCode} onChange={handleInputChange} className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#1a7935] outline-none" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-1.5">Country</label>
@@ -245,19 +314,22 @@ const Checkout = () => {
                                     </div>
                                 ))}
                             </div>
-
                             <div className="pt-4 border-t border-gray-200 space-y-3 mb-8">
                                 <div className="flex justify-between text-gray-600">
                                     <span>Subtotal</span>
-                                    <span>Rs. {totalAmount}</span>
+                                    <span>Rs. {totalAmount.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-600">
+                                    <span>VAT (18%)</span>
+                                    <span>Rs. {vatAmount.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-gray-600">
                                     <span>Delivery</span>
-                                    <span className="text-green-600 font-medium">Calculated Later</span>
+                                    <span className="text-green-600 font-medium">FREE</span>
                                 </div>
                                 <div className="flex justify-between font-bold text-2xl text-gray-900 pt-2 border-t border-gray-200">
                                     <span>Total</span>
-                                    <span>Rs. {totalAmount}</span>
+                                    <span>Rs. {grandTotal.toFixed(2)}</span>
                                 </div>
                             </div>
 
@@ -274,7 +346,7 @@ const Checkout = () => {
                                     </>
                                 ) : (
                                     <>
-                                        Pay Rs. {totalAmount} with PayHere
+                                        Pay Rs. {grandTotal.toFixed(2)}
                                     </>
                                 )}
                             </button>

@@ -1,12 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 
 const PayHereCheckout = ({ orderId, amount, items, customerDetails, onDismiss }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const isPaymentStarted = useRef(false);
 
     useEffect(() => {
         const initializePayment = async () => {
+            if (isPaymentStarted.current) return;
+            isPaymentStarted.current = true;
+
             try {
                 // 1. Fetch the hash and merchant id dynamically
                 const response = await axios.get(`/api/payment/hash/${orderId}`);
@@ -14,9 +18,27 @@ const PayHereCheckout = ({ orderId, amount, items, customerDetails, onDismiss })
 
                 // 2. Setup PayHere event callbacks
                 if (window.payhere) {
-                    window.payhere.onCompleted = function onCompleted(returnedOrderId) {
+                    window.payhere.onCompleted = async function onCompleted(returnedOrderId) {
                         console.log("Payment completed. OrderID:" + returnedOrderId);
-                        window.location.href = `${window.location.origin}/my-orders?payment=success&orderId=${returnedOrderId}`;
+                        
+                        // --- MOCK WEBHOOK FOR LOCALHOST SANDBOX ---
+                        try {
+                            await axios.post('/api/payment/notify', null, {
+                                params: {
+                                    merchant_id: merchant_id,
+                                    order_id: returnedOrderId,
+                                    payhere_amount: amountFormatted || amount,
+                                    payhere_currency: "LKR",
+                                    status_code: "2",
+                                    md5sig: "mocked"
+                                }
+                            });
+                        } catch(e) {
+                            console.error("Mock webhook failed", e);
+                        } finally {
+                            window.location.href = `${window.location.origin}/my-orders?payment=success&orderId=${returnedOrderId}`;
+                        }
+                        // ------------------------------------------
                     };
 
                     window.payhere.onDismissed = function onDismissed() {
@@ -34,8 +56,8 @@ const PayHereCheckout = ({ orderId, amount, items, customerDetails, onDismiss })
                     const payment = {
                         "sandbox": true,
                         "merchant_id": merchant_id,
-                        "return_url": `${window.location.origin}/my-orders`,
-                        "cancel_url": `${window.location.origin}/checkout`,
+                        "return_url": "http://localhost:5173/my-orders?payment_success_order=" + orderId,
+                        "cancel_url": "http://localhost:5173/checkout",
                         "notify_url": "http://localhost:8080/api/payment/notify",
                         "order_id": orderId,
                         "items": items || "AgroLink Order",

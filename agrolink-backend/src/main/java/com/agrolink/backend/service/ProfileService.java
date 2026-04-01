@@ -37,6 +37,20 @@ public class ProfileService {
         if (profile.getRole() == null) {
             throw new IllegalArgumentException("Role is required");
         }
+
+        // --- NEW VALIDATIONS ACCORDING TO SRI LANKAN STANDARDS (DSR) ---
+        if (profile.getNic() != null && !com.agrolink.backend.util.ValidationUtils.isValidNIC(profile.getNic())) {
+            throw new IllegalArgumentException("Invalid Sri Lankan NIC format.");
+        }
+
+        if (profile.getPhoneNumber() != null && !com.agrolink.backend.util.ValidationUtils.isValidMobile(profile.getPhoneNumber())) {
+            throw new IllegalArgumentException("Invalid Mobile Number format. (Required format: +947XXXXXXXX or 07XXXXXXXX)");
+        }
+
+        if (profile.getZipCode() != null && !com.agrolink.backend.util.ValidationUtils.isValidPostalCode(profile.getZipCode())) {
+            throw new IllegalArgumentException("Invalid Postal Code format. (Required exactly 5 digits)");
+        }
+        // ----------------------------------------------------------------
         
         // Set status to pending if not specified
         if (profile.getStatus() == null) {

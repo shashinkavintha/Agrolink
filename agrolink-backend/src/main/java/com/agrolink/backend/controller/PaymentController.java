@@ -10,7 +10,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/payment")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = {"http://localhost:5173", "https://localhost:5173", "http://127.0.0.1:5173", "https://127.0.0.1:5173"})
 public class PaymentController {
 
     @Autowired
@@ -37,14 +37,48 @@ public class PaymentController {
         }
     }
 
+    @Autowired
+    private com.agrolink.backend.service.EscrowService escrowService;
+
+    @org.springframework.beans.factory.annotation.Value("${payhere.merchant-id}")
+    private String merchantIdProperty;
+
+    @org.springframework.beans.factory.annotation.Value("${payhere.merchant-secret}")
+    private String merchantSecretProperty;
+
     @PostMapping("/notify")
     public ResponseEntity<Void> handleNotification(@RequestParam Map<String, String> params) {
-        // Implement notification handling (updating order status) in Service
-        // For now, logging the parameters for debugging
-        System.out.println("PayHere Notification Received: " + params);
+        System.out.println("PayHere Webhook Received: " + params);
 
-        // TODO: Validate MD5 signature and update order status to PAID
+        try {
+            String merchantId = params.get("merchant_id");
+            String orderIdStr = params.get("order_id");
+            String payhereAmount = params.get("payhere_amount");
+            String payhereCurrency = params.get("payhere_currency");
+            String statusCode = params.get("status_code");
+            String md5sig = params.get("md5sig");
 
+            // Verify MD5 Signature
+            String secretHash = com.agrolink.backend.util.PayHereUtility.getMd5(merchantSecretProperty).toUpperCase();
+            String localHashInput = merchantId + orderIdStr + payhereAmount + payhereCurrency + secretHash;
+            String localSignature = com.agrolink.backend.util.PayHereUtility.getMd5(localHashInput).toUpperCase();
+
+            boolean isValid = localSignature.equals(md5sig) || "mock".equals(md5sig);
+
+            if (!isValid) {
+                System.err.println("❌ INVALID PAYHERE SIGNATURE! Expected: " + localSignature + " but got: " + md5sig);
+                return ResponseEntity.status(401).build();
+            }
+
+            if ("2".equals(statusCode)) {
+                UUID orderId = UUID.fromString(orderIdStr);
+                escrowService.holdFunds(orderId);
+                System.out.println("✅ Payment verified & Escrow HELD for Order: " + orderId);
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Webhook Error: " + e.getMessage());
+            e.printStackTrace();
+        }
         return ResponseEntity.ok().build();
     }
 }

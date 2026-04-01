@@ -19,6 +19,10 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    public List<Product> getAllProducts() {
+        return productRepository.findAll();
+    }
+
     public List<Product> getProductsByFarmer(UUID farmerId) {
         return productRepository.findByFarmerId(farmerId);
     }

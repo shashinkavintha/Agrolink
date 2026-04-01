@@ -5,10 +5,12 @@ import com.agrolink.backend.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.math.BigDecimal;
 import java.util.regex.Pattern;
 
 @Service
@@ -25,6 +27,12 @@ public class ChatService {
 
     @Autowired
     private ProfileRepository profileRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     // A simple regex to catch phone numbers or emails (for platform circumvention prevention)
     private static final Pattern PHONE_REGEX = Pattern.compile(".*\\d{10}.*|.*(?:\\+?\\d{1,3})?[-. (]*\\d{3}[-. )]*\\d{3}[-. ]*\\d{4}.*");
@@ -97,9 +105,62 @@ public class ChatService {
         return customOfferRepository.save(offer);
     }
     
+    @Transactional
     public CustomOffer updateOfferStatus(UUID offerId, String status) {
         CustomOffer offer = customOfferRepository.findById(offerId).orElseThrow();
         offer.setStatus(status);
+
+        if ("ACCEPTED".equals(status)) {
+            // Create a formal Order in the system
+            Order order = new Order();
+            order.setBuyer(offer.getBuyer());
+            order.setFarmer(offer.getSeller());
+            order.setTotalAmount(BigDecimal.valueOf(offer.getTotalPrice()));
+            order.setStatus(OrderStatus.pending);
+            order.setCreatedAt(LocalDateTime.now());
+            
+            // Sync initial coordinates from profiles if available
+            if (offer.getSeller().getLatitude() != null) {
+                order.setPickupLatitude(offer.getSeller().getLatitude());
+                order.setPickupLongitude(offer.getSeller().getLongitude());
+            }
+            if (offer.getBuyer().getLatitude() != null) {
+                order.setDeliveryLatitude(offer.getBuyer().getLatitude());
+                order.setDeliveryLongitude(offer.getBuyer().getLongitude());
+            }
+
+            // Create a single order item representing the custom offer
+            OrderItem item = new OrderItem();
+            item.setOrder(order);
+            item.setCustomItemName("Custom Offer: " + offer.getOfferMetadata());
+            item.setQuantity(BigDecimal.ONE);
+            item.setPriceAtTime(BigDecimal.valueOf(offer.getTotalPrice()));
+
+            order.setItems(List.of(item));
+            
+            orderRepository.save(order);
+            offer.setRelatedOrderId(order.getId());
+            System.out.println("✅ Custom Offer " + offerId + " converted to Order: " + order.getId());
+
+            // Add System Message to Chat
+            saveMessage(
+                offer.getConversation().getId(),
+                offer.getBuyer().getId(), // Buyer is the one accepting
+                "System: Custom offer has been accepted. A formal order #" + order.getId().toString().substring(0, 8) + " has been created.",
+                "SYSTEM",
+                null
+            );
+
+            // Notify Farmer about the new Order
+            notificationService.createNotification(
+                offer.getSeller().getId(),
+                "New Custom Order",
+                "Buyer accepted your offer for Rs. " + offer.getTotalPrice() + ". Please accept the order to start delivery.",
+                "ORDER_PENDING",
+                order.getId()
+            );
+        }
+
         return customOfferRepository.save(offer);
     }
 

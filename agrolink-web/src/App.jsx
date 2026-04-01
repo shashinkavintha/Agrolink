@@ -7,8 +7,10 @@ import VerificationPending from './pages/VerificationPending';
 import FarmerLayout from './components/farmer/FarmerLayout';
 import FarmerDashboard from './pages/farmer/FarmerDashboard';
 import AddProduct from './pages/farmer/AddProduct';
+import MyProducts from './pages/farmer/MyProducts';
 import FarmerOrders from './pages/farmer/FarmerOrders';
 import FarmerRequests from './pages/farmer/FarmerRequests';
+import FarmerWallet from './pages/farmer/FarmerWallet';
 // Support Pages
 import FarmerSupport from './pages/farmer/FarmerSupport';
 import DriverSupport from './pages/driver/DriverSupport';
@@ -79,8 +81,8 @@ function App() {
               <Route path="orders" element={<FarmerOrders />} />
               <Route path="requests" element={<FarmerRequests />} />
               <Route path="support" element={<FarmerSupport />} />
-              <Route path="products" element={<div className="p-10">Products Page Coming Soon</div>} />
-              <Route path="wallet" element={<div className="p-10">Wallet Page Coming Soon</div>} />
+              <Route path="products" element={<MyProducts />} />
+              <Route path="wallet" element={<FarmerWallet />} />
               <Route path="transport" element={<div className="p-10">Transport Page Coming Soon</div>} />
               <Route path="profile" element={<div className="p-10">Profile Page Coming Soon</div>} />
               <Route path="ai-advisor" element={<div className="p-10">AI Advisor Coming Soon</div>} />

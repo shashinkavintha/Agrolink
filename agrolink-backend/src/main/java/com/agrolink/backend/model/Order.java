@@ -30,6 +30,16 @@ public class Order {
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private OrderStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "escrow_status")
+    private EscrowStatus escrowStatus;
+
+    @Column(name = "platform_commission", precision = 12, scale = 2)
+    private BigDecimal platformCommission;
+
+    @Column(name = "vendor_earning", precision = 12, scale = 2)
+    private BigDecimal vendorEarning;
+
     @ManyToOne
     @JoinColumn(name = "farmer_id")
     private Profile farmer;
@@ -58,6 +68,24 @@ public class Order {
 
     @Column(name = "contact_number")
     private String contactNumber;
+
+    @Column(name = "city")
+    private String city;
+
+    @Column(name = "province")
+    private String province;
+
+    @Column(name = "zip_code")
+    private String zipCode;
+
+    @Column(name = "payment_method")
+    private String paymentMethod;
+
+    @Column(name = "vat_amount", precision = 12, scale = 2)
+    private BigDecimal vatAmount;
+
+    @Column(name = "subtotal", precision = 12, scale = 2)
+    private BigDecimal subtotal;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -192,6 +220,54 @@ public class Order {
         this.contactNumber = contactNumber;
     }
 
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getProvince() {
+        return province;
+    }
+
+    public void setProvince(String province) {
+        this.province = province;
+    }
+
+    public String getZipCode() {
+        return zipCode;
+    }
+
+    public void setZipCode(String zipCode) {
+        this.zipCode = zipCode;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public BigDecimal getVatAmount() {
+        return vatAmount;
+    }
+
+    public void setVatAmount(BigDecimal vatAmount) {
+        this.vatAmount = vatAmount;
+    }
+
+    public BigDecimal getSubtotal() {
+        return subtotal;
+    }
+
+    public void setSubtotal(BigDecimal subtotal) {
+        this.subtotal = subtotal;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -238,5 +314,29 @@ public class Order {
 
     public void setCancellationReason(String cancellationReason) {
         this.cancellationReason = cancellationReason;
+    }
+
+    public EscrowStatus getEscrowStatus() {
+        return escrowStatus;
+    }
+
+    public void setEscrowStatus(EscrowStatus escrowStatus) {
+        this.escrowStatus = escrowStatus;
+    }
+
+    public BigDecimal getPlatformCommission() {
+        return platformCommission;
+    }
+
+    public void setPlatformCommission(BigDecimal platformCommission) {
+        this.platformCommission = platformCommission;
+    }
+
+    public BigDecimal getVendorEarning() {
+        return vendorEarning;
+    }
+
+    public void setVendorEarning(BigDecimal vendorEarning) {
+        this.vendorEarning = vendorEarning;
     }
 }

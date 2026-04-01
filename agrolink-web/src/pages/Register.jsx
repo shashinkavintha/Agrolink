@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import axios from 'axios';
-import { User, Truck, Sprout, ShoppingBag, Loader2, Store } from 'lucide-react';
+import { User, Truck, Sprout, ShoppingBag, Loader2, Store, CreditCard, Phone } from 'lucide-react';
+import { validationRules } from '../lib/validation';
 
 const roles = [
     { id: 'farmer', label: 'Farmer', icon: Sprout, description: 'Sell your harvest directly to buyers.' },
@@ -24,6 +25,8 @@ export default function Register() {
     const [fullName, setFullName] = useState('');
     const [selectedRole, setSelectedRole] = useState(null);
     const [buyerType, setBuyerType] = useState('');
+    const [nic, setNic] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
 
     // Driver Details
     const [vehicleType, setVehicleType] = useState('lorry');
@@ -48,6 +51,41 @@ export default function Register() {
             setError('Please fill in all vehicle details.');
             return;
         }
+
+        // --- SRI LANKAN VALIDATION ---
+        if (!validationRules.nic.test(nic)) {
+            setError('Invalid NIC format. (Legacy: 9 dig + V/X, Modern: 12 dig)');
+            return;
+        }
+        if (!validationRules.mobile.test(phoneNumber)) {
+            setError('Invalid Phone Number format. (e.g., 0771234567 or +94771234567)');
+            return;
+        }
+        // -----------------------------
+
+        // --- PASSWORD VALIDATION ---
+        if (password.length < 8) {
+            setError('Password must be at least 8 characters long.');
+            return;
+        }
+        if (!/(?=.*[a-z])/.test(password)) {
+            setError('Password must contain at least one lowercase letter.');
+            return;
+        }
+        if (!/(?=.*[A-Z])/.test(password)) {
+            setError('Password must contain at least one uppercase letter.');
+            return;
+        }
+        if (!/(?=.*\d)/.test(password)) {
+            setError('Password must contain at least one number.');
+            return;
+        }
+        if (!/(?=.*[@$!%*?&._-])/.test(password)) {
+            setError('Password must contain at least one special character (@$!%*?&._-).');
+            return;
+        }
+        // -----------------------------
+
         setLoading(true);
         setError('');
         setMessage('');
@@ -68,6 +106,8 @@ export default function Register() {
                     email: email,
                     fullName: fullName,
                     role: selectedRole,
+                    nic: nic,
+                    phoneNumber: phoneNumber,
                     buyerType: selectedRole === 'buyer' ? buyerType : null,
                     vehicleType: selectedRole === 'driver' ? vehicleType : null,
                     vehicleModel: selectedRole === 'driver' ? vehicleModel : null,
@@ -141,6 +181,42 @@ export default function Register() {
                             </div>
                         </div>
 
+                        {/* NIC Number */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">NIC Number</label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <CreditCard className="h-4 w-4 text-gray-400" />
+                                </div>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g. 199512345678 or 855420159V"
+                                    value={nic}
+                                    onChange={(e) => setNic(e.target.value.toUpperCase())}
+                                    className="block w-full pl-10 px-3 py-2 border border-gray-300 rounded-md focus:ring-[#1a7935] focus:border-[#1a7935] sm:text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Phone Number */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Phone className="h-4 w-4 text-gray-400" />
+                                </div>
+                                <input
+                                    type="tel"
+                                    required
+                                    placeholder="e.g. 0771234567"
+                                    value={phoneNumber}
+                                    onChange={(e) => setPhoneNumber(e.target.value)}
+                                    className="block w-full pl-10 px-3 py-2 border border-gray-300 rounded-md focus:ring-[#1a7935] focus:border-[#1a7935] sm:text-sm"
+                                />
+                            </div>
+                        </div>
+
                         {/* Password */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Password</label>
@@ -152,6 +228,9 @@ export default function Register() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#1a7935] focus:border-[#1a7935] sm:text-sm"
                                 />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Must be at least 8 characters, and include an uppercase letter, a lowercase letter, a number, and a special character.
+                                </p>
                             </div>
                         </div>
 

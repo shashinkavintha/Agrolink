@@ -17,4 +17,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     List<Product> findByCategory_Type(String type);
 
     List<Product> findByCategory_TypeAndStatus(String type, ProductStatus status);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE Product p SET p.quantity = p.quantity - :deduction WHERE p.id = :id AND p.quantity >= :deduction")
+    int deductStock(@org.springframework.data.repository.query.Param("id") UUID id, @org.springframework.data.repository.query.Param("deduction") java.math.BigDecimal deduction);
 }

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { Send, FileText, CheckCircle, XCircle } from 'lucide-react';
+import PayHereCheckout from '../../components/payment/PayHereCheckout';
 
 export default function ChatApp() {
     const { conversationId } = useParams();
@@ -15,6 +16,7 @@ export default function ChatApp() {
     const [showOfferModal, setShowOfferModal] = useState(false);
     const [offerDetails, setOfferDetails] = useState({ price: '', delivery: '', description: '' });
     const [conversation, setConversation] = useState(null);
+    const [paymentProps, setPaymentProps] = useState(null);
     const messagesEndRef = useRef(null);
 
     // Fetch message history on load
@@ -116,8 +118,21 @@ export default function ChatApp() {
         try {
             const res = await fetch(`/api/chat/offers/${offerId}/accept`, { method: 'POST' });
             if (res.ok) {
-                alert('Offer accepted successfully! You can now proceed to payment.');
-                // In full flow, redirect to PayHere checkout with total price
+                const updatedOffer = await res.json();
+                
+                setPaymentProps({
+                    orderId: updatedOffer.relatedOrderId,
+                    amount: updatedOffer.totalPrice,
+                    items: "Negotiated Custom Offer",
+                    customerDetails: {
+                        first_name: user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || "Buyer",
+                        last_name: user?.user_metadata?.full_name?.split(' ')[1] || "Guest",
+                        email: user?.email || "buyer@agrolink.lk", 
+                        phone: user?.phone || "0771234567", 
+                        address: "Agrolink Marketplace",
+                        city: "Colombo"
+                    }
+                });
             }
         } catch (error) {
             console.error('Accept error', error);
@@ -238,6 +253,13 @@ export default function ChatApp() {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {paymentProps && (
+                <PayHereCheckout 
+                    {...paymentProps} 
+                    onDismiss={() => setPaymentProps(null)} 
+                />
             )}
         </div>
     );

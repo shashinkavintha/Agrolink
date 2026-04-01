@@ -32,6 +32,8 @@ public class CustomOffer {
     @Column(columnDefinition = "TEXT")
     private String offerMetadata; // JSON string payload
 
+    private UUID relatedOrderId;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public UUID getId() { return id; }
@@ -57,6 +59,9 @@ public class CustomOffer {
 
     public String getOfferMetadata() { return offerMetadata; }
     public void setOfferMetadata(String offerMetadata) { this.offerMetadata = offerMetadata; }
+
+    public UUID getRelatedOrderId() { return relatedOrderId; }
+    public void setRelatedOrderId(UUID relatedOrderId) { this.relatedOrderId = relatedOrderId; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

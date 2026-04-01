@@ -58,6 +58,17 @@ public class OrderController {
 
     @PutMapping("/{id}/status")
     public ResponseEntity<Order> updateStatus(@PathVariable UUID id, @RequestParam OrderStatus status) {
+        if (status == OrderStatus.delivered) {
+            try {
+                // Auto-release funds in Escrow when order is marked as delivered
+                escrowService.releaseFunds(id); 
+                return ResponseEntity.ok(orderService.getOrdersByStatus(OrderStatus.delivered).stream().filter(o -> o.getId().equals(id)).findFirst().orElse(null));
+            } catch (Exception e) {
+                System.err.println("Escrow Release bypassed/failed during status update: " + e.getMessage());
+                // Fallback to normal status update if escrow wasn't held or failed
+            }
+        }
+
         Order updated = orderService.updateStatus(id, status);
         if (updated != null) {
             return ResponseEntity.ok(updated);
@@ -71,6 +82,12 @@ public class OrderController {
             @RequestParam(required = false) Double lon) {
         Order updated = orderService.farmerAcceptOrder(id, lat, lon);
         if (updated != null) {
+            // Updated to use centralized acceptance logic in EscrowService
+            try {
+                escrowService.confirmFarmerAcceptance(id);
+            } catch (Exception e) {
+                System.err.println("Fallback Escrow Acceptance failed: " + e.getMessage());
+            }
             return ResponseEntity.ok(updated);
         }
         return ResponseEntity.notFound().build();
@@ -90,5 +107,30 @@ public class OrderController {
     public List<Order> getNearbyJobs(@RequestParam double lat, @RequestParam double lon) {
         System.out.println("Endpoint /nearby hit with lat: " + lat + ", lon: " + lon);
         return orderService.getNearbyAvailableJobs(lat, lon);
+    }
+
+    @Autowired
+    private com.agrolink.backend.service.EscrowService escrowService;
+
+    @PostMapping("/{id}/accept-delivery")
+    public ResponseEntity<String> acceptDelivery(@PathVariable UUID id) {
+        try {
+            escrowService.releaseFunds(id);
+            return ResponseEntity.ok("Delivery accepted and funds released to seller.");
+        } catch (Exception e) {
+            System.err.println("Accept Delivery Error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/{id}/dispute")
+    public ResponseEntity<String> disputeOrder(@PathVariable UUID id) {
+        try {
+            escrowService.disputeFunds(id);
+            return ResponseEntity.ok("Order is now under dispute. Funds frozen.");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

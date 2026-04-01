@@ -11,6 +11,10 @@ public class CheckoutRequest {
     private Double deliveryLatitude;
     private Double deliveryLongitude;
     private String contactNumber;
+    private String city;
+    private String province;
+    private String zipCode;
+    private String paymentMethod;
     private List<CheckoutItem> items;
 
     public UUID getBuyerId() {
@@ -51,6 +55,38 @@ public class CheckoutRequest {
 
     public void setContactNumber(String contactNumber) {
         this.contactNumber = contactNumber;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getProvince() {
+        return province;
+    }
+
+    public void setProvince(String province) {
+        this.province = province;
+    }
+
+    public String getZipCode() {
+        return zipCode;
+    }
+
+    public void setZipCode(String zipCode) {
+        this.zipCode = zipCode;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 
     public List<CheckoutItem> getItems() {
