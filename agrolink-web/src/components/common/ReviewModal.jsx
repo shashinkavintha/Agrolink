@@ -8,6 +8,7 @@ const ReviewModal = ({ isOpen, onClose, revieweeName, orderId, revieweeId, produ
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isUpdate, setIsUpdate] = useState(false);
+    const [reviewId, setReviewId] = useState(null);
 
     React.useEffect(() => {
         if (isOpen && orderId && reviewerId && (revieweeId || productId)) {
@@ -19,10 +20,12 @@ const ReviewModal = ({ isOpen, onClose, revieweeName, orderId, revieweeId, produ
             axios.get(`/api/reviews?${params.toString()}`)
                 .then(res => {
                     if (res.data) {
+                        setReviewId(res.data.id);
                         setRating(res.data.rating);
                         setComment(res.data.comment || '');
                         setIsUpdate(true);
                     } else {
+                        setReviewId(null);
                         setIsUpdate(false);
                         setRating(0);
                         setComment('');
@@ -30,6 +33,7 @@ const ReviewModal = ({ isOpen, onClose, revieweeName, orderId, revieweeId, produ
                 })
                 .catch(() => {
                     // Ignore 404 or other errors, assume new review
+                    setReviewId(null);
                     setIsUpdate(false);
                     setRating(0);
                     setComment('');
@@ -79,6 +83,21 @@ const ReviewModal = ({ isOpen, onClose, revieweeName, orderId, revieweeId, produ
         }
     };
 
+    const handleDelete = async () => {
+        if (!window.confirm("Are you sure you want to delete this review?")) return;
+        setLoading(true);
+        setError(null);
+        try {
+            await axios.delete(`/api/reviews/${reviewId}?reviewerId=${reviewerId}`);
+            onReviewSuccess();
+            onClose();
+        } catch (err) {
+            setError('Failed to delete review: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -121,21 +140,33 @@ const ReviewModal = ({ isOpen, onClose, revieweeName, orderId, revieweeId, produ
                         />
                     </div>
 
-                    <div className="flex justify-end gap-3">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={loading || rating === 0}
-                            className="px-5 py-2.5 bg-[#1a7935] text-white rounded-xl font-bold hover:bg-[#145d29] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-900/20"
-                        >
-                            {loading ? (isUpdate ? 'Updating...' : 'Submitting...') : (isUpdate ? 'Update Review' : 'Submit Review')}
-                        </button>
+                    <div className="flex justify-between items-center gap-3 w-full mt-6">
+                        {isUpdate && reviewId ? (
+                            <button
+                                type="button"
+                                onClick={handleDelete}
+                                disabled={loading}
+                                className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors disabled:opacity-50"
+                            >
+                                Delete
+                            </button>
+                        ) : <div></div>}
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={loading || rating === 0}
+                                className="px-5 py-2.5 bg-[#1a7935] text-white rounded-xl font-bold hover:bg-[#145d29] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-900/20"
+                            >
+                                {loading ? (isUpdate ? 'Updating...' : 'Submitting...') : (isUpdate ? 'Update Review' : 'Submit Review')}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

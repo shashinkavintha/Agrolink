@@ -251,14 +251,6 @@ const MyOrders = () => {
                                         </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        {selectedOrder.status === 'delivered' && (
-                                            <button
-                                                onClick={() => openReviewModal(selectedOrder.id, selectedOrder.driver?.id, null, selectedOrder.driver?.fullName || 'Driver')}
-                                                className="bg-white text-blue-600 border border-blue-200 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-50 shadow-sm transition-colors"
-                                            >
-                                                Review Driver
-                                            </button>
-                                        )}
                                         {selectedOrder.status !== 'delivered' && (
                                             <a
                                                 href={`/track?jobId=${selectedOrder.id}`}

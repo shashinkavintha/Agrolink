@@ -17,6 +17,15 @@ export default function ProductDetails() {
     const [loadingReviews, setLoadingReviews] = useState(false);
     const [chatLoading, setChatLoading] = useState(false);
 
+    // New Seller Review State Setup
+    const [sellerReviews, setSellerReviews] = useState([]);
+    const [loadingSellerReviews, setLoadingSellerReviews] = useState(false);
+    
+    // Auto-Reply Form State Hooks
+    const [replyingToId, setReplyingToId] = useState(null);
+    const [replyText, setReplyText] = useState('');
+    const [replyLoading, setReplyLoading] = useState(false);
+
     const { addToCart } = useCart();
 
     useEffect(() => {
@@ -101,6 +110,134 @@ export default function ProductDetails() {
                 .finally(() => setLoadingReviews(false));
         }
     }, [product, activeTab]);
+
+    // Fetch Seller Reviews immediately if checking the Farmer Details
+    useEffect(() => {
+        if (product && activeTab === 'farmer' && product.farmer?.id) {
+            setLoadingSellerReviews(true);
+            axios.get(`/api/reviews/profile/${product.farmer.id}`)
+                .then(res => {
+                    const sortedReviews = res.data.sort((a, b) => {
+                        if (a.rating !== b.rating) {
+                            return (b.rating || 0) - (a.rating || 0);
+                        }
+                        return new Date(b.createdAt) - new Date(a.createdAt);
+                    });
+                    setSellerReviews(sortedReviews);
+                })
+                .catch(err => console.error("Failed to load seller reviews", err))
+                .finally(() => setLoadingSellerReviews(false));
+        }
+    }, [product, activeTab]);
+
+    // Dedicated backend-reply network wrapper function
+    const handleReplySubmit = async (reviewId, isSellerReview) => {
+        if (!replyText.trim()) return;
+        setReplyLoading(true);
+        try {
+            const res = await axios.put(`/api/reviews/${reviewId}/reply`, { reply: replyText });
+            const updatedReview = res.data;
+            if (isSellerReview) {
+                setSellerReviews(prev => prev.map(r => r.id === reviewId ? updatedReview : r));
+            } else {
+                setReviews(prev => prev.map(r => r.id === reviewId ? updatedReview : r));
+            }
+            setReplyingToId(null);
+            setReplyText('');
+        } catch (error) {
+            console.error("Failed to post reply:", error);
+            alert("Failed to submit reply. Please try again.");
+        } finally {
+            setReplyLoading(false);
+        }
+    };
+
+    const renderReviewCard = (review, isSellerReview) => {
+        // Evaluate role matching here
+        const isFarmer = user?.id === (product?.farmer?.id || product?.farmerId);
+        const isReplying = replyingToId === review.id;
+
+        return (
+            <div key={review.id} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm relative">
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-sm">
+                            {review.reviewer?.fullName?.charAt(0) || 'U'}
+                        </div>
+                        <div>
+                            <p className="font-bold text-sm text-gray-800">{review.reviewer?.fullName || 'Anonymous'}</p>
+                            <p className="text-xs text-gray-400">{new Date(review.createdAt).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center text-yellow-500">
+                        {[...Array(5)].map((_, i) => (
+                            <Star key={i} className={`h-3 w-3 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'}`} />
+                        ))}
+                    </div>
+                </div>
+                <p className="text-gray-700 text-sm leading-relaxed mb-4">
+                    {review.comment || <span className="text-gray-400 italic">No written feedback provided.</span>}
+                </p>
+
+                {/* The Default Auto-Or-Manual Sent Seller Reply Response */}
+                {review.sellerReply && (
+                    <div className="mt-4 bg-green-50/50 p-3 rounded-xl border border-green-100 relative">
+                        <div className="absolute top-0 right-4 -mt-2 opacity-50 text-green-200">
+                            <ShieldCheck className="h-6 w-6" />
+                        </div>
+                        <div className="flex items-center gap-1.5 mb-1 relative z-10">
+                            <ShieldCheck className="h-3 w-3 text-[#1a7935]" />
+                            <span className="text-xs font-bold text-gray-800 tracking-wide uppercase">Response from Seller</span>
+                        </div>
+                        <p className="text-gray-600 text-xs italic leading-relaxed relative z-10">
+                            "{review.sellerReply}"
+                        </p>
+                    </div>
+                )}
+
+                {/* Secret Reply Field for Verified Viewing Farmers */}
+                {isFarmer && !review.sellerReply && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                        {!isReplying ? (
+                            <button
+                                onClick={() => { setReplyingToId(review.id); setReplyText(''); }}
+                                className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                            >
+                                Reply to User
+                            </button>
+                        ) : (
+                            <div className="space-y-3">
+                                <textarea
+                                    className="w-full text-sm border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-[#1a7935]"
+                                    rows="3"
+                                    placeholder="Write your reply..."
+                                    value={replyText}
+                                    onChange={e => setReplyText(e.target.value)}
+                                    disabled={replyLoading}
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        onClick={() => { setReplyingToId(null); setReplyText(''); }}
+                                        className="px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                                        disabled={replyLoading}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => handleReplySubmit(review.id, isSellerReview)}
+                                        className="px-4 py-2 text-xs font-bold text-white bg-[#1a7935] hover:bg-[#145d29] rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+                                        disabled={replyLoading || !replyText.trim()}
+                                    >
+                                        {replyLoading ? 'Sending...' : 'Send Reply'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -311,17 +448,34 @@ export default function ProductDetails() {
                             )}
 
                             {activeTab === 'farmer' && (
-                                <div className="flex items-center gap-6 animate-fade-in">
-                                    <div className="w-16 h-16 rounded-full bg-[#1a7935] text-white flex items-center justify-center text-2xl font-bold">
-                                        <User className="h-8 w-8" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900">{product.farmer?.fullName || 'Registered Farmer'}</h4>
-                                        <p className="text-gray-500 text-sm">Member since {new Date(product.farmer?.createdAt || Date.now()).getFullYear()}</p>
-                                        <div className="flex items-center gap-2 mt-2 text-sm text-[#1a7935] bg-green-50 px-3 py-1 rounded-full w-fit">
-                                            <ShieldCheck className="h-3 w-3" />
-                                            Verified Seller
+                                <div className="space-y-8 animate-fade-in">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-16 h-16 rounded-full bg-[#1a7935] text-white flex items-center justify-center text-2xl font-bold">
+                                            <User className="h-8 w-8" />
                                         </div>
+                                        <div>
+                                            <h4 className="font-bold text-lg text-gray-900">{product.farmer?.fullName || 'Registered Farmer'}</h4>
+                                            <p className="text-gray-500 text-sm">Member since {new Date(product.farmer?.createdAt || Date.now()).getFullYear()}</p>
+                                            <div className="flex items-center gap-2 mt-2 text-sm text-[#1a7935] bg-green-50 px-3 py-1 rounded-full w-fit">
+                                                <ShieldCheck className="h-3 w-3" />
+                                                Verified Seller
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="pt-6 border-t border-gray-100">
+                                        <h5 className="font-bold text-gray-800 mb-4">Reviews & Seller Reputation</h5>
+                                        {loadingSellerReviews ? (
+                                            <div className="flex justify-center py-4">
+                                                <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#1a7935] border-t-transparent"></div>
+                                            </div>
+                                        ) : sellerReviews.length === 0 ? (
+                                            <p className="text-sm text-gray-500 italic">No seller reviews yet.</p>
+                                        ) : (
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                {sellerReviews.map(review => renderReviewCard(review, true))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -340,45 +494,7 @@ export default function ProductDetails() {
                                         </div>
                                     ) : (
                                         <div className="grid gap-4 md:grid-cols-2">
-                                            {reviews.map(review => (
-                                                <div key={review.id} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm relative">
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-sm">
-                                                                {review.reviewer?.fullName?.charAt(0) || 'U'}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-bold text-sm text-gray-800">{review.reviewer?.fullName || 'Anonymous'}</p>
-                                                                <p className="text-xs text-gray-400">{new Date(review.createdAt).toLocaleDateString()}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center text-yellow-500">
-                                                            {[...Array(5)].map((_, i) => (
-                                                                <Star key={i} className={`h-3 w-3 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'}`} />
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                    <p className="text-gray-700 text-sm leading-relaxed">
-                                                        {review.comment || <span className="text-gray-400 italic">No written feedback provided.</span>}
-                                                    </p>
-
-                                                    {/* Display Seller Reply */}
-                                                    {review.sellerReply && (
-                                                        <div className="mt-4 bg-green-50/50 p-3 rounded-xl border border-green-100 relative">
-                                                            <div className="absolute top-0 right-4 -mt-2 opacity-50 text-green-200">
-                                                                <ShieldCheck className="h-6 w-6" />
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 mb-1 relative z-10">
-                                                                <ShieldCheck className="h-3 w-3 text-[#1a7935]" />
-                                                                <span className="text-xs font-bold text-gray-800 tracking-wide uppercase">Response from Seller</span>
-                                                            </div>
-                                                            <p className="text-gray-600 text-xs italic leading-relaxed relative z-10">
-                                                                "{review.sellerReply}"
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
+                                            {reviews.map(review => renderReviewCard(review, false))}
                                         </div>
                                     )}
                                 </div>

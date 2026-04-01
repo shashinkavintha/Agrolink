@@ -93,11 +93,37 @@ public class ReviewService {
             review.setProduct(product);
             
             // Automated Review Reply bot logic for Product reviews
-            if (rating >= 4) {
-                review.setSellerReply("Thank you so much for your positive feedback! We are thrilled you liked the product.");
+            String reply = "";
+            String lowerComment = comment != null ? comment.toLowerCase() : "";
+
+            if (rating == 1) {
+                if (lowerComment.contains("rot") || lowerComment.contains("bad") || lowerComment.contains("spoil") || lowerComment.contains("terrible")) {
+                    reply = "We are incredibly sorry to hear that the product arrived in bad condition! Please contact support so we can make this right.";
+                } else if (lowerComment.contains("late") || lowerComment.contains("delay") || lowerComment.contains("slow")) {
+                    reply = "We sincerely apologize for the delayed delivery. We are working with our logistics team to ensure this doesn't happen again.";
+                } else {
+                    reply = "We are so sorry for your disappointing experience. We take your 1-star review very seriously and will use this to improve.";
+                }
+            } else if (rating == 2 || rating == 3) {
+                if (lowerComment.contains("price") || lowerComment.contains("expensive")) {
+                    reply = "Thank you for the feedback. We try our best to keep prices competitive while ensuring fair pay for our hardworking farmers.";
+                } else {
+                    reply = "We appreciate your honest feedback. We're sorry the product didn't fully meet your expectations, and we will strive to do better.";
+                }
+            } else if (rating == 4) {
+                if (lowerComment.contains("good") || lowerComment.contains("nice")) {
+                    reply = "Thank you for the 4-star review! We're glad you had a good experience. Let us know how we can earn that 5th star next time!";
+                } else {
+                    reply = "Thank you for your positive feedback! Your support means a lot to us.";
+                }
             } else {
-                review.setSellerReply("We appreciate your feedback and sincerely apologize that the product didn't fully meet your expectations. We will use this to improve.");
+                if (lowerComment.contains("best") || lowerComment.contains("amazing") || lowerComment.contains("perfect") || lowerComment.contains("tasty") || lowerComment.contains("delicious")) {
+                    reply = "Wow! Hearing such amazing feedback makes our day. Thank you so much for your support!";
+                } else {
+                    reply = "Thank you so much for your fantastic 5-star review! We are thrilled you loved the product.";
+                }
             }
+            review.setSellerReply(reply);
         }
 
         Review savedReview = reviewRepository.save(review);
@@ -160,14 +186,38 @@ public class ReviewService {
         return reviewRepository.save(review);
     }
 
+    @Transactional
+    public void deleteReview(UUID reviewId, UUID reviewerId) {
+        Review review = reviewRepository.findById(reviewId)
+            .orElseThrow(() -> new IllegalArgumentException("Review not found"));
+            
+        if (!review.getReviewer().getId().equals(reviewerId)) {
+            throw new IllegalStateException("Only the creator can delete this review");
+        }
+
+        UUID revieweeId = review.getReviewee() != null ? review.getReviewee().getId() : null;
+        UUID productId = review.getProduct() != null ? review.getProduct().getId() : null;
+
+        reviewRepository.delete(review);
+
+        if (revieweeId != null) updateProfileRating(revieweeId);
+        if (productId != null) updateProductRating(productId);
+    }
+
     private void updateProductRating(UUID productId) {
         List<Review> reviews = reviewRepository.findByProductId(productId);
-        if (reviews.isEmpty()) return;
+        Product product = productRepository.findById(productId).orElseThrow();
+        
+        if (reviews.isEmpty()) {
+            product.setRating(0.0);
+            productRepository.save(product);
+            return;
+        }
+        
         double sum = reviews.stream().mapToInt(Review::getRating).sum();
-        double average = sum / reviews.size();
+        double average = sum / (double) reviews.size();
         average = Math.round(average * 10.0) / 10.0;
 
-        Product product = productRepository.findById(productId).orElseThrow();
         product.setRating(average);
         productRepository.save(product);
     }
