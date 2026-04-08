@@ -27,7 +27,7 @@ export default function ProductDetails() {
                 // But efficient way: backend SHOULD have getById. I will use a direct fetch pattern assuming standard REST 
                 // If it fails, I'll fallback to list.
                 // Actually, let's just use the list for safety as I didn't verify a single get endpoint in Controller.
-                const res = await axios.get('/api/products/approved');
+                const res = await axios.get('/api/farmershop-products/approved');
                 const found = res.data.find(p => p.id === id);
                 setProduct(found);
 
