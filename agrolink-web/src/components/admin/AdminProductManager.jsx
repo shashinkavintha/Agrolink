@@ -48,7 +48,7 @@ export default function AdminProductManager() {
     const fetchData = async () => {
         try {
             const [prodRes, catRes] = await Promise.all([
-                axios.get('/api/products?categoryType=FARMERS_SHOP'),
+                axios.get('/api/farmershop-products'),
                 axios.get('/api/categories?type=FARMERS_SHOP')
             ]);
             setProducts(prodRes.data);
@@ -103,7 +103,7 @@ export default function AdminProductManager() {
             };
 
             if (editingProduct) {
-                await axios.put(`/api/products/${editingProduct.id}`, payload);
+                await axios.put(`/api/farmershop-products/${editingProduct.id}`, payload);
             } else {
                 // For create, we might need a valid farmerId. 
                 // Since this is Admin creating "Farmers Shop" items, we might need a dummy Farmer ID or update backend to allow null farmerId for system products.
@@ -111,7 +111,7 @@ export default function AdminProductManager() {
                 // Assuming the backend handles the mapping or we send a dummy one.
                 // Ideally, we should have a 'System Farmer' or similar. 
                 // Let's rely on the hardcoded dummy zero UUID in formData for now and see if backend accepts it.
-                await axios.post('/api/products', payload);
+                await axios.post('/api/farmershop-products', payload);
             }
             fetchData();
             handleCloseModal();
@@ -124,7 +124,7 @@ export default function AdminProductManager() {
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this product?')) {
             try {
-                await axios.delete(`/api/products/${id}`);
+                await axios.delete(`/api/farmershop-products/${id}`);
                 fetchData();
             } catch (error) {
                 console.error('Error deleting product:', error);
