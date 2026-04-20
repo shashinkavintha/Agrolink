@@ -11,6 +11,7 @@ import MyProducts from './pages/farmer/MyProducts';
 import FarmerOrders from './pages/farmer/FarmerOrders';
 import FarmerRequests from './pages/farmer/FarmerRequests';
 import FarmerWallet from './pages/farmer/FarmerWallet';
+import MarketInsights from './pages/farmer/MarketInsights';
 // Support Pages
 import FarmerSupport from './pages/farmer/FarmerSupport';
 import DriverSupport from './pages/driver/DriverSupport';
@@ -20,6 +21,7 @@ import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminDriverRegistration from './pages/admin/AdminDriverRegistration';
 import UserVerification from './pages/admin/UserVerification';
+import UserManagement from './pages/admin/UserManagement';
 import ProductReview from './pages/admin/ProductReview';
 import OrderManagement from './pages/admin/OrderManagement';
 import AdminFarmersShop from './pages/admin/AdminFarmersShop';
@@ -86,7 +88,7 @@ function App() {
               <Route path="transport" element={<div className="p-10">Transport Page Coming Soon</div>} />
               <Route path="profile" element={<div className="p-10">Profile Page Coming Soon</div>} />
               <Route path="ai-advisor" element={<div className="p-10">AI Advisor Coming Soon</div>} />
-              <Route path="insights" element={<div className="p-10">Insights Coming Soon</div>} />
+              <Route path="insights" element={<MarketInsights />} />
             </Route>
 
             {/* Driver Routes */}
@@ -112,6 +114,7 @@ function App() {
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="register-driver" element={<AdminDriverRegistration />} />
               <Route path="verification" element={<UserVerification />} />
+              <Route path="users" element={<UserManagement />} />
               <Route path="products" element={<ProductReview />} />
               <Route path="orders" element={<OrderManagement />} />
               <Route path="farmers-shop" element={<AdminFarmersShop />} />

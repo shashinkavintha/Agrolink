@@ -4,5 +4,6 @@ public enum UserStatus {
     pending,
     submitted,
     approved,
-    rejected
+    rejected,
+    banned
 }

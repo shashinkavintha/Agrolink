@@ -64,6 +64,29 @@ public class ProfileController {
         return ResponseEntity.notFound().build();
     }
 
+    @GetMapping("/all")
+    public ResponseEntity<List<Profile>> getAllProfiles() {
+        return ResponseEntity.ok(profileService.getAllProfiles());
+    }
+
+    @PutMapping("/{id}/ban")
+    public ResponseEntity<Profile> banProfile(@PathVariable UUID id) {
+        Profile profile = profileService.banProfile(id);
+        if (profile != null) {
+            return ResponseEntity.ok(profile);
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @PutMapping("/{id}/activate")
+    public ResponseEntity<Profile> activateProfile(@PathVariable UUID id) {
+        Profile profile = profileService.activateProfile(id);
+        if (profile != null) {
+            return ResponseEntity.ok(profile);
+        }
+        return ResponseEntity.notFound().build();
+    }
+
     @PutMapping("/{id}/submit-verification")
     public ResponseEntity<Profile> submitVerification(@PathVariable UUID id, @RequestBody Profile updatedProfile) {
         Profile profile = profileService.getProfile(id);

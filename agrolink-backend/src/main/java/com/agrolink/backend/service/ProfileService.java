@@ -88,6 +88,28 @@ public class ProfileService {
         return profileRepository.findByStatusIn(List.of(UserStatus.pending, UserStatus.submitted));
     }
 
+    public List<Profile> getAllProfiles() {
+        return profileRepository.findAll();
+    }
+
+    public Profile banProfile(UUID id) {
+        Profile profile = getProfile(id);
+        if (profile != null) {
+            profile.setStatus(UserStatus.banned);
+            return profileRepository.save(profile);
+        }
+        return null;
+    }
+
+    public Profile activateProfile(UUID id) {
+        Profile profile = getProfile(id);
+        if (profile != null) {
+            profile.setStatus(UserStatus.approved);
+            return profileRepository.save(profile);
+        }
+        return null;
+    }
+
     public Profile approveProfile(UUID id) {
         Profile profile = getProfile(id);
         if (profile != null) {
