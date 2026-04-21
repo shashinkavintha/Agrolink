@@ -200,7 +200,7 @@ export default function AdminProductManager() {
 
     const filteredProducts = products.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.category && p.category.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        ((typeof p.category === 'string' ? p.category : p.category?.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     if (loading) return <div>Loading...</div>;

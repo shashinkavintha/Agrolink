@@ -34,9 +34,9 @@ public class ReviewService {
     }
 
     @Transactional
-    public Review createReview(UUID orderId, UUID reviewerId, UUID revieweeId, UUID productId, Integer rating, String comment) {
-        if (revieweeId == null && productId == null) {
-            throw new IllegalArgumentException("Either reviewee or product must be specified");
+    public Review createReview(UUID orderId, UUID reviewerId, UUID revieweeId, UUID productId, UUID shopProductId, Integer rating, String comment, String sellerReply) {
+        if (revieweeId == null && productId == null && shopProductId == null) {
+            throw new IllegalArgumentException("Either reviewee, product, or shop product must be specified");
         }
 
         if (revieweeId != null && reviewRepository.existsByOrderIdAndReviewerIdAndRevieweeId(orderId, reviewerId, revieweeId)) {
@@ -62,6 +62,7 @@ public class ReviewService {
         review.setReviewer(reviewer);
         review.setRating(rating);
         review.setComment(comment);
+        review.setSellerReply(sellerReply);
         review.setCreatedAt(LocalDateTime.now());
 
         // Verified Purchase status
@@ -93,6 +94,13 @@ public class ReviewService {
             review.setProduct(product);
         }
 
+        if (shopProductId != null) {
+            if (reviewRepository.existsByOrderIdAndReviewerIdAndShopProductId(orderId, reviewerId, shopProductId)) {
+                throw new IllegalStateException("Review already exists for this order and shop product");
+            }
+            review.setShopProductId(shopProductId);
+        }
+
         Review savedReview = reviewRepository.save(review);
 
         if (revieweeId != null) updateProfileRating(revieweeId);
@@ -109,12 +117,16 @@ public class ReviewService {
         return reviewRepository.findByProductId(productId);
     }
 
+    public List<Review> getReviewsForShopProduct(UUID shopProductId) {
+        return reviewRepository.findByShopProductId(shopProductId);
+    }
+
     private void updateProfileRating(UUID profileId) {
         rankingService.updateFarmerRanksAndKPIs(profileId);
     }
 
     @Transactional
-    public Review updateReview(UUID orderId, UUID reviewerId, UUID revieweeId, UUID productId, Integer rating, String comment) {
+    public Review updateReview(UUID orderId, UUID reviewerId, UUID revieweeId, UUID productId, UUID shopProductId, Integer rating, String comment, String sellerReply) {
         Review review;
         if (revieweeId != null) {
             review = reviewRepository.findByOrderIdAndReviewerIdAndRevieweeId(orderId, reviewerId, revieweeId)
@@ -122,12 +134,18 @@ public class ReviewService {
         } else if (productId != null) {
             review = reviewRepository.findByOrderIdAndReviewerIdAndProductId(orderId, reviewerId, productId)
                 .orElseThrow(() -> new IllegalArgumentException("Review not found for this order and product"));
+        } else if (shopProductId != null) {
+            review = reviewRepository.findByOrderIdAndReviewerIdAndShopProductId(orderId, reviewerId, shopProductId)
+                .orElseThrow(() -> new IllegalArgumentException("Review not found for this order and shop product"));
         } else {
-            throw new IllegalArgumentException("Must provide revieweeId or productId");
+            throw new IllegalArgumentException("Must provide revieweeId, productId, or shopProductId");
         }
 
         review.setRating(rating);
         review.setComment(comment);
+        if (sellerReply != null) {
+            review.setSellerReply(sellerReply);
+        }
         review.setCreatedAt(LocalDateTime.now());
 
         Review savedReview = reviewRepository.save(review);
@@ -136,18 +154,25 @@ public class ReviewService {
         return savedReview;
     }
 
-    public Review getReview(UUID orderId, UUID reviewerId, UUID revieweeId, UUID productId) {
+    public Review getReview(UUID orderId, UUID reviewerId, UUID revieweeId, UUID productId, UUID shopProductId) {
         if (revieweeId != null) {
             return reviewRepository.findByOrderIdAndReviewerIdAndRevieweeId(orderId, reviewerId, revieweeId).orElse(null);
         } else if (productId != null) {
             return reviewRepository.findByOrderIdAndReviewerIdAndProductId(orderId, reviewerId, productId).orElse(null);
+        } else if (shopProductId != null) {
+            return reviewRepository.findByOrderIdAndReviewerIdAndShopProductId(orderId, reviewerId, shopProductId).orElse(null);
         }
         return null;
     }
 
     private void updateProductRating(UUID productId) {
         List<Review> reviews = reviewRepository.findByProductId(productId);
-        if (reviews.isEmpty()) return;
+        if (reviews.isEmpty()) {
+            Product product = productRepository.findById(productId).orElseThrow();
+            product.setRating(0.0);
+            productRepository.save(product);
+            return;
+        }
         double sum = reviews.stream().mapToInt(Review::getRating).sum();
         double average = sum / reviews.size();
         average = Math.round(average * 10.0) / 10.0;
@@ -155,5 +180,24 @@ public class ReviewService {
         Product product = productRepository.findById(productId).orElseThrow();
         product.setRating(average);
         productRepository.save(product);
+    }
+
+    @Transactional
+    public void deleteReview(UUID reviewId, UUID reviewerId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("Review not found"));
+
+        if (!review.getReviewer().getId().equals(reviewerId)) {
+            throw new IllegalStateException("You can only delete your own reviews");
+        }
+
+        UUID revieweeId = review.getReviewee() != null ? review.getReviewee().getId() : null;
+        UUID productId = review.getProduct() != null ? review.getProduct().getId() : null;
+
+        reviewRepository.delete(review);
+
+        // Recalculate ratings after deletion
+        if (revieweeId != null) updateProfileRating(revieweeId);
+        if (productId != null) updateProductRating(productId);
     }
 }

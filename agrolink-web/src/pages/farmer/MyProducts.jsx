@@ -11,7 +11,9 @@ import {
     XCircle,
     Package,
     Search,
-    Filter
+    Filter,
+    PlusCircle,
+    MinusCircle
 } from 'lucide-react';
 
 const categories = [
@@ -38,6 +40,9 @@ export default function MyProducts() {
         status: ''
     });
     const [submitting, setSubmitting] = useState(false);
+
+    // Quick Stock Update State
+    const [updatingStockId, setUpdatingStockId] = useState(null);
 
     useEffect(() => {
         fetchProducts();
@@ -114,6 +119,21 @@ export default function MyProducts() {
             alert("Failed to update product.");
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleQuickStockUpdate = async (product, newQuantity) => {
+        if (newQuantity < 0) return;
+        setUpdatingStockId(product.id);
+        try {
+            const updatedProduct = { ...product, quantity: newQuantity };
+            await axios.put(`/api/products/${product.id}`, updatedProduct);
+            setProducts(products.map(p => p.id === product.id ? { ...p, quantity: newQuantity } : p));
+        } catch (err) {
+            console.error(err);
+            alert("Failed to update stock.");
+        } finally {
+            setUpdatingStockId(null);
         }
     };
 
@@ -232,13 +252,39 @@ export default function MyProducts() {
                                             <span className="text-xs text-gray-500 font-bold ml-1">/{product.unit}</span>
                                         </p>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs text-gray-400 font-medium text-right">Available / තොගය</p>
-                                        <p className="text-lg font-bold text-gray-700">{product.quantity} {product.unit}</p>
+                                    <div className="text-right flex flex-col items-end">
+                                        <p className="text-xs text-gray-400 font-medium text-right mb-1">Available / තොගය</p>
+                                        <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 border border-gray-200">
+                                            <button 
+                                                onClick={() => handleQuickStockUpdate(product, product.quantity - 10)}
+                                                disabled={updatingStockId === product.id}
+                                                className="text-gray-500 hover:text-red-500 disabled:opacity-50"
+                                            >
+                                                <MinusCircle className="w-5 h-5" />
+                                            </button>
+                                            <span className="text-lg font-bold text-gray-800 min-w-[3rem] text-center">
+                                                {updatingStockId === product.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : product.quantity}
+                                            </span>
+                                            <button 
+                                                onClick={() => handleQuickStockUpdate(product, product.quantity + 10)}
+                                                disabled={updatingStockId === product.id}
+                                                className="text-gray-500 hover:text-green-600 disabled:opacity-50"
+                                            >
+                                                <PlusCircle className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                        <span className="text-xs text-gray-500 font-bold mt-1">{product.unit}</span>
                                     </div>
                                 </div>
+                                
+                                {product.quantity < 50 && (
+                                    <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-2 flex items-center gap-2 text-red-600">
+                                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                        <p className="text-xs font-bold uppercase tracking-wider">Low Stock Warning!</p>
+                                    </div>
+                                )}
 
-                                <div className="mt-5 pt-4 border-t border-gray-50 flex gap-3">
+                                <div className="mt-4 pt-4 border-t border-gray-50 flex gap-3">
                                     <button 
                                         onClick={() => openEditModal(product)}
                                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-50 text-gray-700 rounded-xl font-bold hover:bg-[#1a7935] hover:text-white transition-all text-sm active:scale-95"
@@ -309,7 +355,7 @@ export default function MyProducts() {
                             </div>
 
                             <p className="text-[10px] text-gray-400 font-bold uppercase leading-relaxed text-center">
-                                * Note: Editing your product will set its status to <span className="text-amber-500">Pending</span> for admin review.
+                                * Note: Editing your product will instantaneously update it on the marketplace.
                             </p>
                             
                             <div className="flex gap-4 pt-2">

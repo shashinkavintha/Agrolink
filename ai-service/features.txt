@@ -1,0 +1,1 @@
+Month,Region,Temperature,Rainfall,Humidity,YieldScore,Commodity

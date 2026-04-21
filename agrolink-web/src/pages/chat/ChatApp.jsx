@@ -6,6 +6,78 @@ import SockJS from 'sockjs-client';
 import { Send, FileText, CheckCircle, XCircle } from 'lucide-react';
 import PayHereCheckout from '../../components/payment/PayHereCheckout';
 
+const OfferMessage = ({ msg, isMe, onAccept }) => {
+    const [offer, setOffer] = useState(null);
+
+    useEffect(() => {
+        if (msg.relatedOfferId) {
+            fetch(`/api/chat/offers/${msg.relatedOfferId}`)
+                .then(res => res.json())
+                .then(data => setOffer(data))
+                .catch(err => console.error("Error fetching offer details", err));
+        }
+    }, [msg.relatedOfferId]);
+
+    const isPending = offer?.status === 'PENDING';
+
+    return (
+        <div className="flex flex-col items-center my-4">
+            <div className={`bg-gradient-to-r from-green-50 to-blue-50 border ${isPending ? 'border-green-200' : 'border-gray-300 opacity-80'} rounded-2xl p-6 w-full max-w-md shadow-sm`}>
+                <div className="flex items-center gap-3 mb-4 border-b border-green-100 pb-4">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-800">Custom Offer</h3>
+                        <p className="text-xs text-gray-500">Proposed by {msg.sender?.fullName}</p>
+                    </div>
+                </div>
+
+                {offer ? (
+                    <div className="space-y-3 mb-4">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-500 font-medium">Description:</span>
+                            <span className="text-gray-800 font-medium text-right max-w-[60%]">{offer.offerMetadata}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-500 font-medium">Delivery Time:</span>
+                            <span className="text-gray-800 font-bold">{offer.deliveryTime}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm bg-white p-3 rounded-xl border border-green-100">
+                            <span className="text-gray-500 font-medium">Total Price:</span>
+                            <span className="text-green-700 font-black text-lg">Rs. {offer.totalPrice}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm mt-2">
+                            <span className="text-gray-500 font-medium">Status:</span>
+                            <span className={`font-bold uppercase text-xs px-2 py-1 rounded-md ${isPending ? 'bg-yellow-100 text-yellow-700' : (offer.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}`}>
+                                {offer.status}
+                            </span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex justify-center p-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                    </div>
+                )}
+                
+                {(!isMe || true) && offer && isPending && ( // Allow accepting for demonstration or proper roles
+                    <div className="flex gap-3 mt-4 pt-4 border-t border-green-100">
+                        <button 
+                            onClick={() => onAccept(msg.relatedOfferId)}
+                            className="flex-1 bg-green-600 text-white font-medium py-2 rounded-xl flex items-center justify-center gap-2 hover:bg-green-700"
+                        >
+                            <CheckCircle className="w-4 h-4" /> Accept
+                        </button>
+                        <button className="flex-1 bg-red-50 text-red-600 font-medium py-2 rounded-xl flex items-center justify-center gap-2 hover:bg-red-100">
+                            <XCircle className="w-4 h-4" /> Decline
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export default function ChatApp() {
     const { conversationId } = useParams();
     const { user } = useAuth();
@@ -154,36 +226,7 @@ export default function ChatApp() {
                     const isSystem = msg.type === 'SYSTEM';
 
                     if (msg.type === 'OFFER') {
-                        return (
-                            <div key={i} className="flex flex-col items-center my-4">
-                                <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-2xl p-6 w-full max-w-md shadow-sm">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                            <FileText className="w-5 h-5 text-green-600" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-bold text-gray-800">Custom Offer</h3>
-                                            <p className="text-xs text-gray-500">Proposed by {msg.sender?.fullName}</p>
-                                        </div>
-                                    </div>
-                                    <p className="text-gray-600 mb-4">{msg.content}</p>
-                                    
-                                    {!isMe && (
-                                        <div className="flex gap-3 mt-4 pt-4 border-t border-green-100">
-                                            <button 
-                                                onClick={() => handleAcceptOffer(msg.relatedOfferId)}
-                                                className="flex-1 bg-green-600 text-white font-medium py-2 rounded-xl flex items-center justify-center gap-2 hover:bg-green-700"
-                                            >
-                                                <CheckCircle className="w-4 h-4" /> Accept
-                                            </button>
-                                            <button className="flex-1 bg-red-50 text-red-600 font-medium py-2 rounded-xl flex items-center justify-center gap-2 hover:bg-red-100">
-                                                <XCircle className="w-4 h-4" /> Decline
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
+                        return <OfferMessage key={i} msg={msg} isMe={isMe} onAccept={handleAcceptOffer} />;
                     }
 
                     return (

@@ -82,6 +82,15 @@ public class OrderService {
                     } else {
                         System.out.println("⚠️ Farmer has no location to sync for Order " + id);
                     }
+                    
+                    StringBuilder sb = new StringBuilder();
+                    if (farmer.getAddressLine1() != null && !farmer.getAddressLine1().isEmpty()) sb.append(farmer.getAddressLine1()).append(", ");
+                    if (farmer.getCity() != null && !farmer.getCity().isEmpty()) sb.append(farmer.getCity());
+                    String fullAddress = sb.toString();
+                    if (fullAddress.endsWith(", ")) fullAddress = fullAddress.substring(0, fullAddress.length() - 2);
+                    if (!fullAddress.isEmpty()) {
+                        order.setPickupAddress(fullAddress);
+                    }
                 }
             }
 
@@ -213,6 +222,14 @@ public class OrderService {
                     order.setPickupLatitude(seller.getLatitude());
                     order.setPickupLongitude(seller.getLongitude());
                 }
+                StringBuilder sb = new StringBuilder();
+                if (seller.getAddressLine1() != null && !seller.getAddressLine1().isEmpty()) sb.append(seller.getAddressLine1()).append(", ");
+                if (seller.getCity() != null && !seller.getCity().isEmpty()) sb.append(seller.getCity());
+                String fullAddress = sb.toString();
+                if (fullAddress.endsWith(", ")) fullAddress = fullAddress.substring(0, fullAddress.length() - 2);
+                if (!fullAddress.isEmpty()) {
+                    order.setPickupAddress(fullAddress);
+                }
             }
 
             // Calculate Subtotal &build Items
@@ -290,6 +307,15 @@ public class OrderService {
                 if (latestLat != null && latestLng != null) {
                     order.setPickupLatitude(latestLat);
                     order.setPickupLongitude(latestLng);
+                }
+                
+                StringBuilder sb = new StringBuilder();
+                if (order.getFarmer().getAddressLine1() != null && !order.getFarmer().getAddressLine1().isEmpty()) sb.append(order.getFarmer().getAddressLine1()).append(", ");
+                if (order.getFarmer().getCity() != null && !order.getFarmer().getCity().isEmpty()) sb.append(order.getFarmer().getCity());
+                String fullAddress = sb.toString();
+                if (fullAddress.endsWith(", ")) fullAddress = fullAddress.substring(0, fullAddress.length() - 2);
+                if (!fullAddress.isEmpty()) {
+                    order.setPickupAddress(fullAddress);
                 }
             }
 

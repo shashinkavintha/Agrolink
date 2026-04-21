@@ -14,7 +14,9 @@ export default function ProductDetails() {
     const [quantity, setQuantity] = useState(1);
     const [activeTab, setActiveTab] = useState('description');
     const [reviews, setReviews] = useState([]);
+    const [farmerReviews, setFarmerReviews] = useState([]);
     const [loadingReviews, setLoadingReviews] = useState(false);
+    const [loadingFarmerReviews, setLoadingFarmerReviews] = useState(false);
     const [chatLoading, setChatLoading] = useState(false);
 
     const { addToCart } = useCart();
@@ -22,19 +24,30 @@ export default function ProductDetails() {
     useEffect(() => {
         const fetchProduct = async () => {
             try {
-                // Fetch approved products and find the one matching ID (or fetch by ID if endpoint exists)
-                // Assuming we use the list endpoint for now or creates a specific one
-                // We'll use the list and filter for now as we don't have a direct public "get one" endpoint confirmed yet
-                // WAIT, ProductController has getApprovedProducts. 
-                // Let's assume we can fetch all and filter, or I should really add a details endpoint.
-                // But efficient way: backend SHOULD have getById. I will use a direct fetch pattern assuming standard REST 
-                // If it fails, I'll fallback to list.
-                // Actually, let's just use the list for safety as I didn't verify a single get endpoint in Controller.
+                // First try marketplace products
                 const res = await axios.get('/api/products/approved');
                 const found = res.data.find(p => p.id === id);
-                setProduct(found);
-
-                // If not found in approved, maybe check general if debugging? no, buyer only sees approved.
+                if (found) {
+                    setProduct(found);
+                } else {
+                    // Fallback: try farmer-shop products (supplier products)
+                    try {
+                        const shopRes = await axios.get(`/api/farmer-shop-products/${id}`);
+                        if (shopRes.data) {
+                            // Normalize farmer-shop product to match the expected shape
+                            const shopProduct = shopRes.data;
+                            setProduct({
+                                ...shopProduct,
+                                quantity: shopProduct.stockQuantity || shopProduct.quantity,
+                                farmer: shopProduct.admin, // map admin -> farmer for display
+                                category: shopProduct.category ? { name: shopProduct.category } : null,
+                                isShopProduct: true
+                            });
+                        }
+                    } catch (shopErr) {
+                        console.error("Product not found in any source", shopErr);
+                    }
+                }
             } catch (err) {
                 console.error("Failed to load product", err);
             } finally {
@@ -91,6 +104,19 @@ export default function ProductDetails() {
                 .then(res => setReviews(res.data))
                 .catch(err => console.error("Failed to load reviews", err))
                 .finally(() => setLoadingReviews(false));
+        }
+
+        if (product && activeTab === 'farmer' && product.farmer) {
+            setLoadingFarmerReviews(true);
+            const farmerId = product.farmer.id || product.farmerId;
+            if (farmerId) {
+                axios.get(`/api/reviews/profile/${farmerId}`)
+                    .then(res => setFarmerReviews(res.data))
+                    .catch(err => console.error("Failed to load farmer reviews", err))
+                    .finally(() => setLoadingFarmerReviews(false));
+            } else {
+                setLoadingFarmerReviews(false);
+            }
         }
     }, [product, activeTab]);
 
@@ -174,8 +200,8 @@ export default function ProductDetails() {
                                 <div className="text-4xl font-bold text-[#1a7935] mb-2">
                                     Rs. {product.price} <span className="text-lg text-gray-500 font-normal">/ {product.unit}</span>
                                 </div>
-                                <p className="text-green-600 font-medium mb-8 bg-green-50 inline-block px-3 py-1 rounded-lg border border-green-100">
-                                    {product.quantity} {product.unit} In Stock
+                                <p className={`font-medium mb-8 inline-block px-3 py-1 rounded-lg border ${product.quantity > 0 ? "text-green-600 bg-green-50 border-green-100" : "text-red-600 bg-red-50 border-red-100"}`}>
+                                    {product.quantity > 0 ? `${product.quantity} ${product.unit} In Stock` : 'Out of Stock'}
                                 </p>
 
                                 {/* Quantity Selector */}
@@ -195,8 +221,9 @@ export default function ProductDetails() {
                                             className="flex-1 text-center bg-transparent font-bold text-gray-800 focus:outline-none"
                                         />
                                         <button
-                                            onClick={() => setQuantity(Math.min(product.quantity, quantity + 1))}
-                                            className="w-12 h-10 flex items-center justify-center text-gray-500 hover:text-[#1a7935] hover:bg-white rounded-lg transition-all"
+                                            onClick={() => setQuantity(Math.min(product.quantity, Math.max(1, parseInt(quantity) || 1) + 1))}
+                                            disabled={product.quantity <= 0 || quantity >= product.quantity}
+                                            className="w-12 h-10 flex items-center justify-center text-gray-500 hover:text-[#1a7935] hover:bg-white rounded-lg transition-all disabled:opacity-50"
                                         >
                                             +
                                         </button>
@@ -206,16 +233,18 @@ export default function ProductDetails() {
                                 {/* Action Buttons */}
                                 <div className="flex gap-4 mb-4">
                                     <button
-                                        className="flex-1 bg-[#1a7935] text-white py-4 rounded-xl font-bold hover:bg-[#145d29] transition-all shadow-lg hover:shadow-[#1a7935]/30 flex items-center justify-center gap-2 transform active:scale-[0.98]"
+                                        disabled={product.quantity <= 0}
+                                        className="flex-1 bg-[#1a7935] text-white py-4 rounded-xl font-bold hover:bg-[#145d29] transition-all shadow-lg hover:shadow-[#1a7935]/30 flex items-center justify-center gap-2 transform active:scale-[0.98] disabled:bg-gray-400 disabled:shadow-none disabled:active:scale-100"
                                         onClick={() => {
                                             addToCart({ ...product, quantity });
                                             alert("Added to cart successfully!");
                                         }}
                                     >
                                         <ShoppingCart className="h-5 w-5" />
-                                        Add to Cart
+                                        {product.quantity > 0 ? 'Add to Cart' : 'Out of Stock'}
                                     </button>
                                     <button
+                                        disabled={product.quantity <= 0}
                                         onClick={() => {
                                             if (!user) {
                                                 alert("Please login to buy products.");
@@ -225,7 +254,7 @@ export default function ProductDetails() {
                                             addToCart({ ...product, quantity });
                                             navigate('/checkout');
                                         }}
-                                        className="px-6 py-4 border-2 border-[#1a7935] text-[#1a7935] rounded-xl font-bold hover:bg-green-50 transition-colors"
+                                        className="px-6 py-4 border-2 border-[#1a7935] text-[#1a7935] rounded-xl font-bold hover:bg-green-50 transition-colors disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-transparent"
                                     >
                                         Buy Now
                                     </button>
@@ -303,17 +332,63 @@ export default function ProductDetails() {
                             )}
 
                             {activeTab === 'farmer' && (
-                                <div className="flex items-center gap-6 animate-fade-in">
-                                    <div className="w-16 h-16 rounded-full bg-[#1a7935] text-white flex items-center justify-center text-2xl font-bold">
-                                        <User className="h-8 w-8" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-lg text-gray-900">{product.farmer?.fullName || 'Registered Farmer'}</h4>
-                                        <p className="text-gray-500 text-sm">Member since {new Date(product.farmer?.createdAt || Date.now()).getFullYear()}</p>
-                                        <div className="flex items-center gap-2 mt-2 text-sm text-[#1a7935] bg-green-50 px-3 py-1 rounded-full w-fit">
-                                            <ShieldCheck className="h-3 w-3" />
-                                            Verified Seller
+                                <div className="space-y-8 animate-fade-in">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-16 h-16 rounded-full bg-[#1a7935] text-white flex items-center justify-center text-2xl font-bold">
+                                            <User className="h-8 w-8" />
                                         </div>
+                                        <div>
+                                            <h4 className="font-bold text-lg text-gray-900">{product.farmer?.fullName || 'Registered Farmer'}</h4>
+                                            <p className="text-gray-500 text-sm">Member since {new Date(product.farmer?.createdAt || Date.now()).getFullYear()}</p>
+                                            <div className="flex items-center gap-2 mt-2 text-sm text-[#1a7935] bg-green-50 px-3 py-1 rounded-full w-fit">
+                                                <ShieldCheck className="h-3 w-3" />
+                                                Verified Seller
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="border-t border-gray-100 pt-6">
+                                        <h5 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                            <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                                            Seller Feedback & Reviews
+                                        </h5>
+                                        {loadingFarmerReviews ? (
+                                            <div className="flex justify-center py-4 text-gray-400">Loading feedback...</div>
+                                        ) : farmerReviews.length === 0 ? (
+                                            <p className="text-sm text-gray-500 bg-white p-4 rounded-xl border border-gray-100">No seller reviews available yet.</p>
+                                        ) : (
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                {farmerReviews.map(review => (
+                                                    <div key={review.id} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm relative flex flex-col">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-sm">
+                                                                    {review.reviewer?.fullName?.charAt(0) || 'U'}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-bold text-sm text-gray-800">{review.reviewer?.fullName || 'Anonymous'}</p>
+                                                                    <p className="text-xs text-gray-400">{new Date(review.createdAt).toLocaleDateString()}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center text-yellow-500">
+                                                                {[...Array(5)].map((_, i) => (
+                                                                    <Star key={i} className={`h-3 w-3 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'}`} />
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-gray-700 text-sm leading-relaxed mb-4">
+                                                            {review.comment || <span className="text-gray-400 italic">No written feedback provided.</span>}
+                                                        </p>
+                                                        {review.sellerReply && (
+                                                            <div className="mt-auto bg-gray-50 p-3 rounded-lg border-l-2 border-[#1a7935] text-sm text-gray-600">
+                                                                <p className="font-bold text-xs text-[#1a7935] uppercase mb-1">Seller Reply (Automated)</p>
+                                                                <p className="italic">"{review.sellerReply}"</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -333,7 +408,7 @@ export default function ProductDetails() {
                                     ) : (
                                         <div className="grid gap-4 md:grid-cols-2">
                                             {reviews.map(review => (
-                                                <div key={review.id} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm relative">
+                                                <div key={review.id} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm relative flex flex-col">
                                                     <div className="flex items-center justify-between mb-3">
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-sm">
@@ -350,9 +425,15 @@ export default function ProductDetails() {
                                                             ))}
                                                         </div>
                                                     </div>
-                                                    <p className="text-gray-700 text-sm leading-relaxed">
+                                                    <p className="text-gray-700 text-sm leading-relaxed mb-4">
                                                         {review.comment || <span className="text-gray-400 italic">No written feedback provided.</span>}
                                                     </p>
+                                                    {review.sellerReply && (
+                                                        <div className="mt-auto bg-gray-50 p-3 rounded-lg border-l-2 border-[#1a7935] text-sm text-gray-600">
+                                                            <p className="font-bold text-xs text-[#1a7935] uppercase mb-1">Seller Reply (Automated)</p>
+                                                            <p className="italic">"{review.sellerReply}"</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
